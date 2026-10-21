@@ -28,3 +28,5 @@ target_link_libraries(smollergraph_tests PRIVATE smollergraph GTest::gtest_main)
 
 include(GoogleTest)
 gtest_discover_tests(smollergraph_tests)
+
+add_executable(make_friends tools/make_friends.cc)
