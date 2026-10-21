@@ -18,11 +18,19 @@ bool LoadFacts(std::istream& in, Graph& graph, std::string& error) {
       return false;
     }
     std::string_view text = line;
-    NodeId from = graph.AddNode(text.substr(1, open - 1));
+    std::string_view from = text.substr(1, open - 1);
     std::string_view type = text.substr(open + 4, close - open - 4);
     // What's left after "]->(", without the closing bracket.
-    NodeId to = graph.AddNode(text.substr(close + 4, text.size() - close - 5));
-    graph.AddRelationship(from, type, to);
+    std::string_view to = text.substr(close + 4, text.size() - close - 5);
+    // Names and types have to fit in the graph's records.
+    if (from.size() > Graph::kMaxName || to.size() > Graph::kMaxName ||
+        type.size() > Graph::kMaxType) {
+      error = line;
+      return false;
+    }
+    NodeId from_id = graph.AddNode(from);
+    NodeId to_id = graph.AddNode(to);
+    graph.AddRelationship(from_id, type, to_id);
   }
   return true;
 }

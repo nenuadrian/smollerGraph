@@ -9,28 +9,50 @@
 #include <unordered_map>
 #include <vector>
 
+#include "record_file.h"
+
 namespace smollergraph {
 
 using NodeId = uint32_t;
 using RelationshipId = uint32_t;
 
-struct Node {
-  std::string name;
-  // The relationships that start at this node, so a hop needs no search.
-  std::vector<RelationshipId> out;
+// The id at the end of a chain, where there's no next relationship.
+inline constexpr RelationshipId kNoRelationship = UINT32_MAX;
+
+// A node on disk: its name, and the first of the relationships that start at
+// it.
+struct NodeRecord {
+  char name[28];
+  RelationshipId first_out;
 };
 
-struct Relationship {
-  std::string type;
+// A relationship on disk: its type, the nodes it joins, and the next
+// relationship that starts at `from`, so a node's relationships form a chain.
+struct RelationshipRecord {
+  char type[20];
   NodeId from;
   NodeId to;
+  RelationshipId next_out;
 };
 
-// A graph kept in memory: nodes by name, and relationships with a type and a
-// direction.
+static_assert(sizeof(NodeRecord) == 32);
+static_assert(sizeof(RelationshipRecord) == 32);
+
+// A graph kept in two files of records, one for nodes and one for
+// relationships.
 class Graph {
  public:
-  // Returns the node with this name, adding it the first time.
+  // The longest name and relationship type that fit in their records.
+  static constexpr size_t kMaxName = sizeof(NodeRecord::name) - 1;
+  static constexpr size_t kMaxType = sizeof(RelationshipRecord::type) - 1;
+
+  // A graph in temporary files, which are deleted with it.
+  Graph();
+  // Opens the graph in the folder at `path`, creating it when it isn't there.
+  bool Open(const std::string& path, std::string& error);
+
+  // Returns the node with this name, adding it the first time. The name has to
+  // be at most kMaxName bytes long.
   NodeId AddNode(std::string_view name);
   void AddRelationship(NodeId from, std::string_view type, NodeId to);
 
@@ -40,13 +62,14 @@ class Graph {
   // Returns the nodes one hop from `node` along relationships of `type`.
   std::vector<NodeId> Neighbours(NodeId node, std::string_view type) const;
 
-  const std::string& name(NodeId node) const { return nodes_[node].name; }
-  size_t node_count() const { return nodes_.size(); }
-  size_t relationship_count() const { return relationships_.size(); }
+  std::string name(NodeId node) const { return nodes_.Read(node).name; }
+  size_t node_count() const { return nodes_.count(); }
+  size_t relationship_count() const { return relationships_.count(); }
 
  private:
-  std::vector<Node> nodes_;
-  std::vector<Relationship> relationships_;
+  RecordFile<NodeRecord> nodes_;
+  RecordFile<RelationshipRecord> relationships_;
+  // Names to node ids, built from the node records when the graph opens.
   std::unordered_map<std::string, NodeId> ids_;
 };
 
