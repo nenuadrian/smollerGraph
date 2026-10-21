@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_compile_options(-Wall -Wextra -Wpedantic)
 
-add_library(smollergraph src/graph.cc src/facts.cc)
+add_library(smollergraph src/graph.cc src/facts.cc src/query.cc)
 target_include_directories(smollergraph PUBLIC src)
 
 add_executable(sg src/main.cc)

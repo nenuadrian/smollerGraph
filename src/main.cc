@@ -1,13 +1,17 @@
+#include <charconv>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <string>
+#include <string_view>
 
 #include "facts.h"
 #include "graph.h"
+#include "query.h"
 
 int main(int argc, char** argv) {
-  if (argc != 2) {
-    std::cerr << "usage: sg <facts file>\n";
+  if (argc != 5) {
+    std::cerr << "usage: sg <facts file> <start> <relationship type> <hops>\n";
     return 1;
   }
   std::ifstream file(argv[1]);
@@ -21,7 +25,24 @@ int main(int argc, char** argv) {
     std::cerr << "sg: can't read the fact " << error << '\n';
     return 1;
   }
-  std::cout << graph.node_count() << " nodes, " << graph.relationship_count()
-            << " relationships\n";
+
+  std::optional<smollergraph::NodeId> start = graph.Find(argv[2]);
+  if (!start) {
+    std::cerr << "sg: there's no node called " << argv[2] << '\n';
+    return 1;
+  }
+  std::string_view text = argv[4];
+  int hops = 0;
+  auto [end, failed] =
+      std::from_chars(text.data(), text.data() + text.size(), hops);
+  if (failed != std::errc() || end != text.data() + text.size() || hops < 0) {
+    std::cerr << "sg: hops must be a whole number, not " << text << '\n';
+    return 1;
+  }
+
+  for (smollergraph::NodeId node :
+       smollergraph::Walk(graph, *start, argv[3], hops)) {
+    std::cout << graph.name(node) << '\n';
+  }
   return 0;
 }

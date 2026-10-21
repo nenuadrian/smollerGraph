@@ -17,6 +17,12 @@ void Graph::AddRelationship(NodeId from, std::string_view type, NodeId to) {
   nodes_[from].out.push_back(id);
 }
 
+std::optional<NodeId> Graph::Find(std::string_view name) const {
+  auto it = ids_.find(std::string(name));
+  if (it == ids_.end()) return std::nullopt;
+  return it->second;
+}
+
 std::vector<NodeId> Graph::Neighbours(NodeId node,
                                       std::string_view type) const {
   std::vector<NodeId> found;

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -32,6 +33,9 @@ class Graph {
   // Returns the node with this name, adding it the first time.
   NodeId AddNode(std::string_view name);
   void AddRelationship(NodeId from, std::string_view type, NodeId to);
+
+  // Returns the node with this name, if the graph has one.
+  std::optional<NodeId> Find(std::string_view name) const;
 
   // Returns the nodes one hop from `node` along relationships of `type`.
   std::vector<NodeId> Neighbours(NodeId node, std::string_view type) const;
