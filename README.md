@@ -24,6 +24,17 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+## Benchmarks
+
+`bench/compare.py` loads a generated social graph into smollerGraph, Kùzu and Neo4j (in Docker),
+and times a two-hop walk of KNOWS from a thousand people in each, three times over, writing the
+medians to `bench/results.json`:
+
+```bash
+./build/make_friends 100000 10 bench/data
+uv run --with kuzu --with neo4j python bench/compare.py
+```
+
 ## With Docker
 
 The same build and tests on a clean Ubuntu, as CI runs them on each push:
