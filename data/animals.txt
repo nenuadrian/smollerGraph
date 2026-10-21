@@ -1,0 +1,17 @@
+# A small knowledge graph about animals: what they are, where they live and
+# what they eat. One fact a line, written as a Cypher pattern.
+(Red fox)-[:IS_A]->(Mammal)
+(Rabbit)-[:IS_A]->(Mammal)
+(Field mouse)-[:IS_A]->(Mammal)
+(Tawny owl)-[:IS_A]->(Bird)
+(Red fox)-[:LIVES_IN]->(Forest)
+(Tawny owl)-[:LIVES_IN]->(Forest)
+(Rabbit)-[:LIVES_IN]->(Meadow)
+(Field mouse)-[:LIVES_IN]->(Meadow)
+(Clover)-[:GROWS_IN]->(Meadow)
+(Wheat)-[:GROWS_IN]->(Meadow)
+(Red fox)-[:EATS]->(Rabbit)
+(Red fox)-[:EATS]->(Field mouse)
+(Tawny owl)-[:EATS]->(Field mouse)
+(Rabbit)-[:EATS]->(Clover)
+(Field mouse)-[:EATS]->(Wheat)
