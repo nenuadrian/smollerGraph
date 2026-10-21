@@ -23,6 +23,14 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+## With Docker
+
+The same build and tests on a clean Ubuntu, as CI runs them on each push:
+
+```bash
+docker build --target test .
+```
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE).
