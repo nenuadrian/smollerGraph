@@ -22,7 +22,8 @@ target_include_directories(smollergraph PUBLIC src)
 add_executable(sg src/main.cc)
 target_link_libraries(sg PRIVATE smollergraph)
 
-add_executable(smollergraph_tests tests/graph_test.cc tests/pager_test.cc)
+add_executable(smollergraph_tests tests/graph_test.cc tests/pager_test.cc
+                                  tests/record_file_test.cc)
 target_link_libraries(smollergraph_tests PRIVATE smollergraph GTest::gtest_main)
 
 include(GoogleTest)
