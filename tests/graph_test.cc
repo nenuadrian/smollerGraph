@@ -1,5 +1,7 @@
 #include "graph.h"
 
+#include <filesystem>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -32,6 +34,24 @@ TEST(GraphTest, NeighboursFollowOneType) {
   graph.AddRelationship(fox, "LIVES_IN", graph.AddNode("Forest"));
   EXPECT_EQ(Names(graph, graph.Neighbours(fox, "EATS")),
             std::vector<std::string>{"Rabbit"});
+}
+
+TEST(GraphTest, KeepsItsRecordsInAFolder) {
+  std::string path = ::testing::TempDir() + "graph_test";
+  std::filesystem::remove_all(path);
+  std::string error;
+  {
+    Graph graph;
+    ASSERT_TRUE(graph.Open(path, error)) << error;
+    NodeId rabbit = graph.AddNode("Rabbit");
+    graph.AddRelationship(rabbit, "EATS", graph.AddNode("Clover"));
+  }
+  Graph graph;
+  ASSERT_TRUE(graph.Open(path, error)) << error;
+  std::optional<NodeId> rabbit = graph.Find("Rabbit");
+  ASSERT_TRUE(rabbit);
+  EXPECT_EQ(Names(graph, graph.Neighbours(*rabbit, "EATS")),
+            std::vector<std::string>{"Clover"});
 }
 
 TEST(FactsTest, WalksTwoHopsDownTheFoodChain) {
