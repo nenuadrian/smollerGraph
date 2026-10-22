@@ -4,6 +4,7 @@
 #include <string>
 #include <string_view>
 
+#include "absl/status/statusor.h"
 #include "graph.h"
 
 namespace smollergraph {
@@ -20,6 +21,15 @@ std::string ErrorJson(std::string_view message);
 
 // Returns each node and each relationship in the graph, for the UI to draw.
 std::string GraphJson(const Graph& graph);
+
+// Returns the nodes each hop of a walk reaches, as WalkHops does, for a walk
+// whose start, relationship type and hops come from a request. When they don't
+// make a walk, it returns an error saying why: not found for a start the graph
+// doesn't have, and an invalid argument for hops that aren't a number up to the
+// limit.
+absl::StatusOr<std::string> WalkJson(const Graph& graph, std::string_view from,
+                                     std::string_view type,
+                                     std::string_view hops);
 
 }  // namespace smollergraph
 

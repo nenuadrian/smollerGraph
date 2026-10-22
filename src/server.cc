@@ -6,10 +6,28 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "api.h"
 
 namespace smollergraph {
+namespace {
+
+// Sends JSON, or an error as JSON, with the HTTP status that goes with the
+// error's code: 404 for something that isn't there, and 400 for a request
+// that's wrong.
+void Send(const absl::StatusOr<std::string>& json,
+          httplib::Response& response) {
+  if (!json.ok()) {
+    response.status = absl::IsNotFound(json.status()) ? 404 : 400;
+    response.set_content(ErrorJson(json.status().message()),
+                         "application/json");
+    return;
+  }
+  response.set_content(*json, "application/json");
+}
+
+}  // namespace
 
 absl::Status Serve(const Graph& graph, const std::string& address, int port) {
   httplib::Server server;
@@ -32,6 +50,13 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
              [&graph](const httplib::Request&, httplib::Response& response) {
                response.set_content(GraphJson(graph), "application/json");
              });
+  server.Get("/api/walk", [&graph](const httplib::Request& request,
+                                   httplib::Response& response) {
+    Send(WalkJson(graph, request.get_param_value("from"),
+                  request.get_param_value("type"),
+                  request.get_param_value("hops")),
+         response);
+  });
   if (!server.bind_to_port(address, port)) {
     return absl::UnavailableError(
         absl::StrCat("can't listen on ", address, " port ", port));

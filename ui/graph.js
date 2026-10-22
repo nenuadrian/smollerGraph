@@ -72,3 +72,38 @@ function drag(simulation) {
         d.fy = null;
       });
 }
+
+// A walk asks sg serve for the nodes each hop reaches, and lights them up a
+// hop at a time, with the relationships it followed to reach them.
+const form = d3.select('#walk');
+let timers = [];
+form.on('submit', async (event) => {
+  event.preventDefault();
+  const query = new URLSearchParams(new FormData(event.target));
+  const response = await fetch(`/api/walk?${query}`);
+  const answer = await response.json();
+  form.select('output').text(answer.error ?? '');
+  if (response.ok) light(answer.hops, query.get('type'));
+});
+
+function light(hops, type) {
+  // A walk started before this one stops lighting things up.
+  timers.forEach(clearTimeout);
+  node.classed('reached answer', false);
+  link.classed('followed', false);
+  timers = hops.map(
+      (_, hop) => setTimeout(() => lightHop(hops, hop, type), hop * 1000));
+}
+
+// Lights up the nodes one hop reaches, and the relationships it followed from
+// the hop before. The start has no hop before it, so it follows none.
+function lightHop(hops, hop, type) {
+  const before = new Set(hops[hop - 1]);
+  const reached = new Set(hops[hop]);
+  const followed = (d) =>
+      d.type === type && before.has(d.source.id) && reached.has(d.target.id);
+  link.filter(followed).classed('followed', true);
+  node.filter((d) => reached.has(d.id))
+      .classed('reached', true)
+      .classed('answer', hop === hops.length - 1);
+}

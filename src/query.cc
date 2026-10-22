@@ -8,10 +8,16 @@ namespace smollergraph {
 
 std::vector<NodeId> Walk(const Graph& graph, NodeId start,
                          std::string_view type, int hops) {
-  std::vector<NodeId> frontier = {start};
+  std::vector<std::vector<NodeId>> reached = WalkHops(graph, start, type, hops);
+  return std::move(reached.back());
+}
+
+std::vector<std::vector<NodeId>> WalkHops(const Graph& graph, NodeId start,
+                                          std::string_view type, int hops) {
+  std::vector<std::vector<NodeId>> reached = {{start}};
   for (int hop = 0; hop < hops; ++hop) {
     std::vector<NodeId> next;
-    for (NodeId node : frontier) {
+    for (NodeId node : reached.back()) {
       for (NodeId neighbour : graph.Neighbours(node, type)) {
         // Two paths can lead to one node, and it's listed once.
         if (std::find(next.begin(), next.end(), neighbour) == next.end()) {
@@ -19,9 +25,9 @@ std::vector<NodeId> Walk(const Graph& graph, NodeId start,
         }
       }
     }
-    frontier = std::move(next);
+    reached.push_back(std::move(next));
   }
-  return frontier;
+  return reached;
 }
 
 }  // namespace smollergraph

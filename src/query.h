@@ -13,6 +13,11 @@ namespace smollergraph {
 std::vector<NodeId> Walk(const Graph& graph, NodeId start,
                          std::string_view type, int hops);
 
+// Returns the nodes each hop of that walk reaches: the start on its own, then
+// the nodes one hop away, and so on, so the last of them is what Walk returns.
+std::vector<std::vector<NodeId>> WalkHops(const Graph& graph, NodeId start,
+                                          std::string_view type, int hops);
+
 }  // namespace smollergraph
 
 #endif  // SMOLLERGRAPH_QUERY_H_

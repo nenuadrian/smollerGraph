@@ -86,3 +86,58 @@ text {
 #arrow path {
   fill: var(--relationship);
 }
+
+form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+}
+
+input,
+button {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+input {
+  width: 11ch;
+}
+
+input[name="hops"] {
+  width: 5ch;
+}
+
+button {
+  border-color: var(--node);
+  background: var(--node);
+  color: var(--field);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+output {
+  color: var(--relationship);
+}
+
+/* A walk lights up each node it reaches, fills in the ones it ends on, and
+   brings out the relationships it followed. */
+.node.reached circle {
+  stroke-width: 6;
+}
+
+.node.answer circle {
+  fill: var(--node);
+}
+
+.relationship.followed {
+  opacity: 1;
+}
+
+.relationship.followed line {
+  stroke-width: 4;
+}
