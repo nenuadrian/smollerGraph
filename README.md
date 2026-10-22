@@ -4,9 +4,9 @@ A small graph database, built from scratch in C++ on the YouTube series
 [Building smollerGraph](https://smollergraph.nenuadrian.com). Each step of each episode is a tag
 in this repository, so you can check out the code at any point in a video.
 
-It keeps a graph in a folder of fixed-size records, in pages of 4 KiB: it loads facts written as
-Cypher patterns, one a line, walks relationships of one type from a node, and draws the graph in a
-browser.
+It keeps a graph in a folder of fixed-size records, in pages of 4 KiB that a buffer pool keeps in
+memory, with a B+ tree that finds a node by its name: it loads facts written as Cypher patterns, one
+a line, walks relationships of one type from a node, and draws the graph in a browser.
 
 ## Building and running
 

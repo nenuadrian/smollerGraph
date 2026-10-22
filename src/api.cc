@@ -18,6 +18,8 @@ namespace {
 
 // The most hops a walk can take: the UI draws a few hops, not the whole graph.
 constexpr uint32_t kMaxHops = 10;
+// How many names the UI suggests at a time.
+constexpr size_t kSuggestions = 8;
 
 // Reads `text` as a whole number, if it's one, and it's at most `max`.
 std::optional<uint32_t> ParseNumber(std::string_view text, uint32_t max) {
@@ -79,6 +81,16 @@ std::string GraphJson(const Graph& graph) {
     absl::StrAppend(&json, "{\"id\": ", id, ", \"from\": ", record.from,
                     ", \"to\": ", record.to,
                     ", \"type\": ", JsonString(record.type), "}");
+  }
+  return json + "]}";
+}
+
+std::string NamesJson(const Graph& graph, std::string_view prefix) {
+  std::string json = "{\"names\": [";
+  std::vector<std::string> names =
+      graph.NamesStartingWith(prefix, kSuggestions);
+  for (size_t i = 0; i < names.size(); ++i) {
+    absl::StrAppend(&json, i > 0 ? ", " : "", JsonString(names[i]));
   }
   return json + "]}";
 }

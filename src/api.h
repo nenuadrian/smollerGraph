@@ -22,6 +22,10 @@ std::string ErrorJson(std::string_view message);
 // Returns each node and each relationship in the graph, for the UI to draw.
 std::string GraphJson(const Graph& graph);
 
+// Returns a few of the graph's names that start with `prefix`, in order, for
+// the UI to suggest.
+std::string NamesJson(const Graph& graph, std::string_view prefix);
+
 // Returns the nodes each hop of a walk reaches, as WalkHops does, for a walk
 // whose start, relationship type and hops come from a request. When they don't
 // make a walk, it returns an error saying why: not found for a start the graph

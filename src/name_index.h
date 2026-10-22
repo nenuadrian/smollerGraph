@@ -35,6 +35,9 @@ class NameIndex {
   std::optional<uint32_t> Find(std::string_view name) const;
   // Keeps `id` for `name`, which the index doesn't have yet.
   void Insert(std::string_view name, uint32_t id);
+  // Returns up to `limit` names that start with `prefix`, in order.
+  std::vector<std::string> NamesStartingWith(std::string_view prefix,
+                                             size_t limit) const;
 
  private:
   // A name, padded with zeros, and the id kept for it. Above the leaves, the
@@ -49,12 +52,13 @@ class NameIndex {
 
   // A page of the tree, as it's laid out in the file: a header of 16 bytes,
   // then its entries, in name order. Above the leaves, `first` is the page for
-  // names before the first entry's.
+  // names before the first entry's. In a leaf, `next` is the leaf after it, or
+  // 0 for the last one, as page 0 is the header.
   struct Node {
     uint32_t leaf;
     uint32_t count;
     PageId first;
-    uint32_t unused;
+    PageId next;
     Entry entries[kEntries];
   };
   static_assert(sizeof(Node) <= kPageSize);

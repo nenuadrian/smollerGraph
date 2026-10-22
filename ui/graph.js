@@ -80,11 +80,31 @@ const form = d3.select('#walk');
 let timers = [];
 form.on('submit', async (event) => {
   event.preventDefault();
+  suggestions.selectAll('li').remove();
   const query = new URLSearchParams(new FormData(event.target));
   const response = await fetch(`/api/walk?${query}`);
   const answer = await response.json();
   form.select('output').text(answer.error ?? '');
   if (response.ok) light(answer.hops, query.get('type'));
+});
+
+// As a name is typed, sg serve suggests the names that start with it, from its
+// index, and clicking one fills it in.
+const from = form.select('input[name=from]');
+const suggestions = form.select('.names ul');
+from.on('input', async () => {
+  const prefix = from.property('value');
+  const query = new URLSearchParams({prefix});
+  const answer =
+      prefix ? await (await fetch(`/api/names?${query}`)).json() : {names: []};
+  suggestions.selectAll('li')
+      .data(answer.names)
+      .join('li')
+      .text((d) => d)
+      .on('click', (event, d) => {
+        from.property('value', d);
+        suggestions.selectAll('li').remove();
+      });
 });
 
 function light(hops, type) {

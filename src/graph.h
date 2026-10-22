@@ -67,6 +67,12 @@ class Graph {
   // Returns the node with this name, if the graph has one.
   std::optional<NodeId> Find(std::string_view name) const;
 
+  // Returns up to `limit` names that start with `prefix`, in order.
+  std::vector<std::string> NamesStartingWith(std::string_view prefix,
+                                             size_t limit) const {
+    return names_.NamesStartingWith(prefix, limit);
+  }
+
   // Returns the nodes one hop from `node` along relationships of `type`.
   std::vector<NodeId> Neighbours(NodeId node, std::string_view type) const;
 

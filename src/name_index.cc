@@ -86,6 +86,10 @@ std::optional<NameIndex::Entry> NameIndex::Add(PageId id, Node& node,
   if (node.leaf) {
     std::copy(entries.begin() + half, entries.end(), right.entries);
     right.count = static_cast<uint32_t>(entries.size() - half);
+    // The new leaf goes between this one and the next, so a scan can go from
+    // leaf to leaf in name order.
+    right.next = node.next;
+    node.next = right_id;
   } else {
     // Above the leaves, the middle entry moves up, and its page becomes the
     // first of the right half.
@@ -98,6 +102,28 @@ std::optional<NameIndex::Entry> NameIndex::Add(PageId id, Node& node,
   Store(id, node);
   Store(right_id, right);
   return up;
+}
+
+std::vector<std::string> NameIndex::NamesStartingWith(std::string_view prefix,
+                                                      size_t limit) const {
+  Node node = Load(root_);
+  while (!node.leaf) node = Load(Child(node, prefix));
+  std::vector<std::string> names;
+  // The names that start with `prefix` sit together, from where `prefix`
+  // would go, and may go on into the leaves after this one.
+  uint32_t at = Position(node, prefix);
+  while (names.size() < limit) {
+    if (at == node.count) {
+      if (node.next == 0) break;
+      node = Load(node.next);
+      at = 0;
+      continue;
+    }
+    std::string_view name = NameOf(node.entries[at++]);
+    if (!name.starts_with(prefix)) break;
+    names.emplace_back(name);
+  }
+  return names;
 }
 
 std::string_view NameIndex::NameOf(const Entry& entry) {

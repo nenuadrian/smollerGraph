@@ -26,6 +26,15 @@ TEST(GraphJsonTest, ListsNodesAndRelationships) {
             R"("type": "EATS"}]})");
 }
 
+TEST(NamesJsonTest, SuggestsNamesThatStartWithWhatsTyped) {
+  Graph graph;
+  graph.AddNode("Red fox");
+  graph.AddNode("Rabbit");
+  graph.AddNode("Clover");
+  EXPECT_EQ(NamesJson(graph, "R"), R"({"names": ["Rabbit", "Red fox"]})");
+  EXPECT_EQ(NamesJson(graph, "Bad"), R"({"names": []})");
+}
+
 TEST(WalkJsonTest, ListsTheNodesEachHopReaches) {
   Graph graph;
   NodeId fox = graph.AddNode("Red fox");

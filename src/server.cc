@@ -50,6 +50,11 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
              [&graph](const httplib::Request&, httplib::Response& response) {
                response.set_content(GraphJson(graph), "application/json");
              });
+  server.Get("/api/names", [&graph](const httplib::Request& request,
+                                    httplib::Response& response) {
+    response.set_content(NamesJson(graph, request.get_param_value("prefix")),
+                         "application/json");
+  });
   server.Get("/api/walk", [&graph](const httplib::Request& request,
                                    httplib::Response& response) {
     Send(WalkJson(graph, request.get_param_value("from"),

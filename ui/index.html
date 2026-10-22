@@ -13,7 +13,12 @@
   <header>
     <h1>(smollerGraph)</h1>
     <form id="walk">
-      <label>Walk from <input name="from" value="Red fox"></label>
+      <label>Walk from
+        <span class="names">
+          <input name="from" value="Red fox" autocomplete="off">
+          <ul></ul>
+        </span>
+      </label>
       <label>along <input name="type" value="EATS"></label>
       <label>for <input name="hops" type="number" value="2" min="0" max="10">
         hops</label>

@@ -124,6 +124,41 @@ output {
   color: var(--relationship);
 }
 
+/* The names that start with what's typed, in a list under the input. */
+.names {
+  position: relative;
+}
+
+.names ul {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1;
+  min-width: 100%;
+  margin: 4px 0 0;
+  padding: 4px 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  list-style: none;
+}
+
+.names ul:empty {
+  display: none;
+}
+
+.names li {
+  padding: 6px 10px;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.names li:hover {
+  background: var(--line);
+  color: var(--node);
+}
+
 /* A walk lights up each node it reaches, fills in the ones it ends on, and
    brings out the relationships it followed. */
 .node.reached circle {
