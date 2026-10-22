@@ -83,5 +83,23 @@ TEST(NodeJsonTest, RefusesANodeTheGraphDoesNotHave) {
   EXPECT_TRUE(absl::IsNotFound(NodeJson(graph, "fox").status()));
 }
 
+TEST(QueryJsonTest, AnswersWithRowsOrAPlan) {
+  Graph graph;
+  NodeId fox = graph.AddNode("Red fox");
+  graph.AddRelationship(fox, "EATS", graph.AddNode("Rabbit"));
+  absl::StatusOr<std::string> rows = QueryJson(
+      graph, "MATCH (a {name: 'Red fox'})-[:EATS]->(b) RETURN b.name");
+  ASSERT_TRUE(rows.ok()) << rows.status();
+  EXPECT_EQ(
+      *rows,
+      R"({"columns": ["b.name"], "rows": [[{"id": 1, "name": "Rabbit"}]]})");
+  absl::StatusOr<std::string> plan =
+      QueryJson(graph, "EXPLAIN MATCH (a) RETURN a.name");
+  ASSERT_TRUE(plan.ok()) << plan.status();
+  EXPECT_EQ(*plan, R"({"plan": "AllNodesScan (a)\u000aReturn a.name\u000a"})");
+  EXPECT_TRUE(absl::IsInvalidArgument(
+      QueryJson(graph, "MATCH (a RETURN a.name").status()));
+}
+
 }  // namespace
 }  // namespace smollergraph

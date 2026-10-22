@@ -25,6 +25,11 @@
       <button>Walk</button>
       <output></output>
     </form>
+    <form id="query">
+      <input name="q" spellcheck="false"
+             value="MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) RETURN c.name">
+      <button>Run</button>
+    </form>
   </header>
   <main>
     <svg id="graph">
@@ -37,6 +42,11 @@
         </marker>
       </defs>
     </svg>
+    <section id="results">
+      <p class="error"></p>
+      <pre class="plan"></pre>
+      <table></table>
+    </section>
     <aside id="inspector">
       <h2></h2>
       <p class="where"></p>

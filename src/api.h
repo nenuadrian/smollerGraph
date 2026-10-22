@@ -40,6 +40,12 @@ absl::StatusOr<std::string> WalkJson(const Graph& graph, std::string_view from,
 // where it's kept. An id the graph doesn't have is an error.
 absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id);
 
+// Parses, plans and runs a query in our subset of Cypher, from a request. It
+// answers with the columns and the rows, each node with its id and name, or
+// with the plan, after EXPLAIN, or with what's wrong with the query.
+absl::StatusOr<std::string> QueryJson(const Graph& graph,
+                                      std::string_view text);
+
 }  // namespace smollergraph
 
 #endif  // SMOLLERGRAPH_API_H_

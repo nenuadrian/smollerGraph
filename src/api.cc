@@ -10,6 +10,8 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "parser.h"
+#include "plan.h"
 #include "query.h"
 #include "record_file.h"
 
@@ -143,6 +145,34 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
                     ", \"to_name\": ", JsonString(graph.name(relationship.to)),
                     Where<RelationshipRecord>(relationship_id), "}");
     relationship_id = relationship.next_out;
+  }
+  return json + "]}";
+}
+
+absl::StatusOr<std::string> QueryJson(const Graph& graph,
+                                      std::string_view text) {
+  absl::StatusOr<Query> query = Parse(text);
+  if (!query.ok()) return query.status();
+  absl::StatusOr<Plan> plan = PlanQuery(*query);
+  if (!plan.ok()) return plan.status();
+  if (query->explain) {
+    return absl::StrCat("{\"plan\": ", JsonString(Explain(*plan)), "}");
+  }
+  Result result = Run(*plan, graph);
+  std::string json = "{\"columns\": [";
+  for (size_t i = 0; i < result.columns.size(); ++i) {
+    absl::StrAppend(&json, i > 0 ? ", " : "", JsonString(result.columns[i]));
+  }
+  json += "], \"rows\": [";
+  for (size_t i = 0; i < result.rows.size(); ++i) {
+    if (i > 0) json += ", ";
+    json += "[";
+    for (size_t j = 0; j < result.rows[i].size(); ++j) {
+      NodeId node = result.rows[i][j];
+      absl::StrAppend(&json, j > 0 ? ", " : "", "{\"id\": ", node,
+                      ", \"name\": ", JsonString(graph.name(node)), "}");
+    }
+    json += "]";
   }
   return json + "]}";
 }

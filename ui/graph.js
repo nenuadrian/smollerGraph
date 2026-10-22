@@ -157,3 +157,38 @@ async function inspect(id) {
   node.classed('inspected', (d) => d.id === id);
   link.classed('chained', (d) => chain.has(d.id));
 }
+
+// A query in our subset of Cypher, which sg serve parses, plans and runs. Its
+// rows go in a table, and the nodes they return are filled in, in the graph.
+// After EXPLAIN, the table shows the plan instead.
+const queryForm = d3.select('#query');
+const results = d3.select('#results');
+queryForm.on('submit', async (event) => {
+  event.preventDefault();
+  const query = new URLSearchParams(new FormData(event.target));
+  const answer = await (await fetch(`/api/query?${query}`)).json();
+  results.classed('open', true);
+  results.select('.error').text(answer.error ?? '');
+  results.select('.plan').text(answer.plan ?? '');
+  const table = results.select('table');
+  table.selectAll('*').remove();
+  if (!answer.rows) return;
+  table.append('tr')
+      .selectAll('th')
+      .data(answer.columns)
+      .join('th')
+      .text((d) => d);
+  table.selectAll('tr.row')
+      .data(answer.rows)
+      .join('tr')
+      .attr('class', 'row')
+      .selectAll('td')
+      .data((d) => d)
+      .join('td')
+      .text((d) => d.name);
+  // The query's nodes take the place of a walk's.
+  timers.forEach(clearTimeout);
+  const returned = new Set(answer.rows.flat().map((d) => d.id));
+  link.classed('followed', false);
+  node.classed('reached', false).classed('answer', (d) => returned.has(d.id));
+});

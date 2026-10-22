@@ -17,7 +17,12 @@ cmake -S . -B build -G Ninja
 cmake --build build
 ./build/sg load animals.sg data/animals.txt
 ./build/sg walk animals.sg "Red fox" EATS 2
+./build/sg query animals.sg "MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) RETURN c.name"
 ```
+
+`sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with an
+optional name each, joined by relationships of one type that go right, for one hop or `*N`, and
+`RETURN [DISTINCT]` the names of some of its variables. `EXPLAIN` in front shows the plan.
 
 ## The UI
 

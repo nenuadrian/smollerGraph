@@ -18,12 +18,15 @@ body {
   background: var(--field);
   color: var(--text);
   font: 16px "JetBrains Mono", monospace;
+  /* The font draws -> as an arrow, which isn't what's typed. */
+  font-variant-ligatures: none;
 }
 
 header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 40px;
+  gap: 12px 40px;
   padding: 14px 24px;
   border-bottom: 1px solid var(--line);
 }
@@ -35,6 +38,7 @@ h1 {
 }
 
 main {
+  position: relative;
   display: flex;
   min-height: 0;
 }
@@ -231,4 +235,67 @@ li {
 
 .relationship.chained line {
   stroke-dasharray: 8 5;
+}
+
+/* The query takes a line of its own under the walk, as wide as the page. */
+#query {
+  flex-basis: 100%;
+}
+
+#query input {
+  flex: 1;
+}
+
+/* A query's results, over the bottom of the graph. */
+#results {
+  position: absolute;
+  left: 24px;
+  bottom: 24px;
+  display: none;
+  max-width: 50%;
+  max-height: 40%;
+  overflow-y: auto;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+#results.open {
+  display: block;
+}
+
+#results .error {
+  margin: 0;
+  color: var(--relationship);
+}
+
+#results .plan {
+  margin: 0;
+  font: inherit;
+  line-height: 1.7;
+}
+
+#results .error:empty,
+#results .plan:empty {
+  display: none;
+}
+
+#results table {
+  border-collapse: collapse;
+}
+
+#results th,
+#results td {
+  padding: 4px 24px 4px 0;
+  text-align: left;
+}
+
+#results th {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#results td {
+  color: var(--node);
 }

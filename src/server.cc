@@ -62,6 +62,10 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
                   request.get_param_value("hops")),
          response);
   });
+  server.Get("/api/query", [&graph](const httplib::Request& request,
+                                    httplib::Response& response) {
+    Send(QueryJson(graph, request.get_param_value("q")), response);
+  });
   server.Get(R"(/api/node/(\d+))", [&graph](const httplib::Request& request,
                                             httplib::Response& response) {
     Send(NodeJson(graph, request.matches[1].str()), response);
