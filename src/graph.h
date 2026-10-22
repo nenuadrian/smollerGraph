@@ -64,6 +64,9 @@ class Graph {
   std::vector<NodeId> Neighbours(NodeId node, std::string_view type) const;
 
   std::string name(NodeId node) const { return nodes_.Read(node).name; }
+  RelationshipRecord relationship(RelationshipId id) const {
+    return relationships_.Read(id);
+  }
   size_t node_count() const { return nodes_.count(); }
   size_t relationship_count() const { return relationships_.count(); }
 
