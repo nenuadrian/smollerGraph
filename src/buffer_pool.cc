@@ -10,6 +10,7 @@ PageHandle::~PageHandle() { pool_.Unpin(frame_); }
 const Page& PageHandle::read() const { return pool_.frames_[frame_].page; }
 
 Page& PageHandle::write() {
+  std::lock_guard<std::mutex> lock(pool_.latch_);
   BufferPool::Frame& frame = pool_.frames_[frame_];
   frame.dirty = true;
   return frame.page;
@@ -25,6 +26,9 @@ BufferPool::BufferPool(Pager& pager, size_t frames)
 BufferPool::~BufferPool() { Flush(); }
 
 PageHandle BufferPool::Fetch(PageId id) {
+  // The latch is held while a page is read or written, too, which keeps this
+  // simple, and makes other threads wait for the disk.
+  std::lock_guard<std::mutex> lock(latch_);
   auto found = table_.find(id);
   if (found != table_.end()) {
     Frame& frame = frames_[found->second];
@@ -76,9 +80,13 @@ size_t BufferPool::Victim() {
   std::abort();
 }
 
-void BufferPool::Unpin(size_t frame) { --frames_[frame].pins; }
+void BufferPool::Unpin(size_t frame) {
+  std::lock_guard<std::mutex> lock(latch_);
+  --frames_[frame].pins;
+}
 
 void BufferPool::Flush() {
+  std::lock_guard<std::mutex> lock(latch_);
   for (Frame& frame : frames_) {
     if (!frame.dirty) continue;
     pager_.Write(frame.id, frame.page);
@@ -88,6 +96,7 @@ void BufferPool::Flush() {
 
 void BufferPool::Clear() {
   Flush();
+  std::lock_guard<std::mutex> lock(latch_);
   frames_.clear();
   table_.clear();
   hand_ = 0;

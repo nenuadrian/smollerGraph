@@ -2,6 +2,7 @@
 #define SMOLLERGRAPH_BUFFER_POOL_H_
 
 #include <cstddef>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -69,6 +70,10 @@ class BufferPool {
   size_t Victim();
   void Unpin(size_t frame);
 
+  // sg serve fetches pages on several threads at once, so a latch, a mutex
+  // held for a moment, keeps them from changing the frames and the table
+  // together. A pinned page is safe to read without it.
+  std::mutex latch_;
   Pager& pager_;
   size_t capacity_;
   std::vector<Frame> frames_;

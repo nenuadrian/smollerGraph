@@ -1,7 +1,10 @@
 #include "buffer_pool.h"
 
+#include <atomic>
 #include <cstddef>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "gtest/gtest.h"
@@ -55,6 +58,30 @@ TEST(BufferPoolTest, FlushWritesChangedPages) {
   Page page;
   pager.Read(0, page);
   EXPECT_EQ(page[5], std::byte{9});
+}
+
+TEST(BufferPoolTest, ThreadsFetchAtOnce) {
+  Pager pager;
+  ASSERT_EQ(pager.OpenTemporary(), absl::OkStatus());
+  for (PageId id = 0; id < 64; ++id) {
+    Page page{};
+    page[0] = std::byte(id);
+    pager.Write(id, page);
+  }
+  // Four frames for 64 pages, so the threads evict each other's pages.
+  BufferPool pool(pager, 4);
+  std::atomic<int> wrong = 0;
+  std::vector<std::thread> threads;
+  for (int t = 0; t < 4; ++t) {
+    threads.emplace_back([&pool, &wrong, t] {
+      for (int i = 0; i < 10000; ++i) {
+        PageId id = (i * 7 + t) % 64;
+        if (pool.Fetch(id).read()[0] != std::byte(id)) ++wrong;
+      }
+    });
+  }
+  for (std::thread& thread : threads) thread.join();
+  EXPECT_EQ(wrong, 0);
 }
 
 }  // namespace

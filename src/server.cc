@@ -44,8 +44,8 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
         absl::StrCat("there's no folder ", SMOLLERGRAPH_UI));
   }
   // The server answers requests on several threads at once. Nothing writes to
-  // the graph while it's served, and pread doesn't move a shared position in
-  // the file, so their reads don't get in each other's way.
+  // the graph while it's served, and the buffer pools' latches keep their
+  // reads from getting in each other's way.
   server.Get("/api/graph",
              [&graph](const httplib::Request&, httplib::Response& response) {
                response.set_content(GraphJson(graph), "application/json");
