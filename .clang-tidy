@@ -1,0 +1,15 @@
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  -bugprone-exception-escape,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-narrowing-conversions,
+  clang-analyzer-*,
+  concurrency-*,
+  -concurrency-mt-unsafe,
+  performance-*,
+  -performance-avoid-endl,
+  -performance-enum-size
+WarningsAsErrors: '*'
+HeaderFilterRegex: '/src/[a-z_]+\.h$'

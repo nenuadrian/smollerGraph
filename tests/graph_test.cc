@@ -1,6 +1,6 @@
 #include "graph.h"
 
-#include <filesystem>
+#include <cstdlib>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -37,8 +37,10 @@ TEST(GraphTest, NeighboursFollowOneType) {
 }
 
 TEST(GraphTest, KeepsItsRecordsInAFolder) {
-  std::string path = ::testing::TempDir() + "graph_test";
-  std::filesystem::remove_all(path);
+  // A new folder, with a name of its own, so nothing is left in it from an
+  // earlier run.
+  std::string path = ::testing::TempDir() + "graph_test_XXXXXX";
+  ASSERT_NE(mkdtemp(path.data()), nullptr);
   std::string error;
   {
     Graph graph;

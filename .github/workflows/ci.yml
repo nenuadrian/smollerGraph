@@ -12,5 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Check the code style
+        run: docker build --target lint .
+
       - name: Build and run the tests
         run: docker build --target test .
+
+      - name: Check the code with clang-tidy
+        run: docker build --target tidy .

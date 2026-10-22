@@ -1,11 +1,14 @@
 #include "graph.h"
 
+#include <sys/stat.h>
+
 #include <algorithm>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <filesystem>
-#include <system_error>
+#include <string>
+#include <vector>
 
 namespace smollergraph {
 namespace {
@@ -30,10 +33,9 @@ Graph::Graph() {
 }
 
 bool Graph::Open(const std::string& path, std::string& error) {
-  std::error_code failed;
-  std::filesystem::create_directories(path, failed);
-  if (failed) {
-    error = failed.message();
+  // A folder that's there already, from an earlier run, is fine.
+  if (mkdir(path.c_str(), 0755) != 0 && errno != EEXIST) {
+    error = std::strerror(errno);
     return false;
   }
   if (!nodes_.Open(path + "/nodes", error) ||
