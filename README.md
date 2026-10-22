@@ -36,6 +36,18 @@ up a walk a hop at a time, and shows a node's record as it's kept on disk when i
 Then open http://localhost:8474. Or, with Docker, `docker compose up` loads the animals and serves
 them there.
 
+## Deploying
+
+`deploy.sh` copies the committed code to a server over SSH, and builds and runs it there with
+Docker Compose, which serves the animals on port 8474:
+
+```bash
+./deploy.sh debian@203.0.113.7
+```
+
+The server needs Docker, with Compose. The UI answers anyone who can reach the port, and it reads
+the graph, so there's nothing to change through it.
+
 ## Testing
 
 ```bash

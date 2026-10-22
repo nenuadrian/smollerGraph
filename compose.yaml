@@ -1,5 +1,6 @@
 # The animals, served by sg serve in a container: docker compose up, then open
-# http://localhost:8474.
+# http://localhost:8474. On a server, deploy.sh runs it, and it starts again
+# when the server restarts.
 name: smollergraph
 services:
   sg:
@@ -9,3 +10,4 @@ services:
       && exec ./build/sg serve animals.sg 8474 0.0.0.0"
     ports: ["8474:8474"]
     init: true
+    restart: unless-stopped
