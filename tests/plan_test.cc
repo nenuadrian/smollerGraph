@@ -1,8 +1,12 @@
 #include "plan.h"
 
+#include <sstream>
 #include <string>
+#include <vector>
 
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "facts.h"
 #include "gtest/gtest.h"
 #include "parser.h"
 
@@ -41,6 +45,63 @@ TEST(PlanTest, RefusesVariablesItCannotPlan) {
             "there's no variable called b");
   EXPECT_EQ(Explained("MATCH (a)-[:EATS]->(a) RETURN a.name"),
             "the variable a is on two nodes");
+}
+
+// The names a query returns, a row to a string, with commas between columns.
+std::vector<std::string> Answers(const Graph& graph, const std::string& text) {
+  absl::StatusOr<Query> query = Parse(text);
+  if (!query.ok()) return {std::string(query.status().message())};
+  absl::StatusOr<Plan> plan = PlanQuery(*query);
+  if (!plan.ok()) return {std::string(plan.status().message())};
+  std::vector<std::string> answers;
+  for (const std::vector<NodeId>& row : Run(*plan, graph).rows) {
+    std::string answer;
+    for (NodeId node : row) {
+      answer += (answer.empty() ? "" : ", ") + graph.name(node);
+    }
+    answers.push_back(answer);
+  }
+  return answers;
+}
+
+class RunTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    std::istringstream facts(
+        "(Red fox)-[:EATS]->(Rabbit)\n"
+        "(Red fox)-[:EATS]->(Field mouse)\n"
+        "(Tawny owl)-[:EATS]->(Field mouse)\n"
+        "(Rabbit)-[:EATS]->(Clover)\n"
+        "(Field mouse)-[:EATS]->(Wheat)\n"
+        "(Rabbit)-[:LIVES_IN]->(Meadow)\n"
+        "(Field mouse)-[:LIVES_IN]->(Meadow)\n");
+    ASSERT_EQ(LoadFacts(facts, graph_), absl::OkStatus());
+  }
+
+  Graph graph_;
+};
+
+TEST_F(RunTest, WalksDownTheFoodChain) {
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) "
+                    "RETURN a.name, c.name"),
+            (std::vector<std::string>{"Red fox, Clover", "Red fox, Wheat"}));
+}
+
+TEST_F(RunTest, FiltersALaterNodeByName) {
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (a)-[:LIVES_IN]->(p {name: 'Meadow'}) "
+                    "RETURN a.name"),
+            (std::vector<std::string>{"Rabbit", "Field mouse"}));
+}
+
+TEST_F(RunTest, ReturnsDistinctRows) {
+  // The fox and the owl both eat the field mouse, so it's in two rows, and
+  // DISTINCT keeps one.
+  EXPECT_EQ(Answers(graph_, "MATCH (a)-[:EATS]->(b) RETURN b.name").size(), 5);
+  EXPECT_EQ(
+      Answers(graph_, "MATCH (a)-[:EATS]->(b) RETURN DISTINCT b.name"),
+      (std::vector<std::string>{"Rabbit", "Field mouse", "Clover", "Wheat"}));
 }
 
 }  // namespace

@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "absl/status/statusor.h"
+#include "graph.h"
 #include "parser.h"
 
 namespace smollergraph {
@@ -48,6 +49,16 @@ absl::StatusOr<Plan> PlanQuery(const Query& query);
 
 // The plan's steps, a line each, in the order they run, as EXPLAIN shows them.
 std::string Explain(const Plan& plan);
+
+// What a query returns: a row for each match of its pattern, with a node for
+// each column.
+struct Result {
+  std::vector<std::string> columns;
+  std::vector<std::vector<NodeId>> rows;
+};
+
+// Runs a plan on a graph, a step at a time, each on all of the rows at once.
+Result Run(const Plan& plan, const Graph& graph);
 
 }  // namespace smollergraph
 

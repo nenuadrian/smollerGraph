@@ -10,9 +10,12 @@
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "facts.h"
 #include "graph.h"
+#include "parser.h"
+#include "plan.h"
 #include "query.h"
 #include "server.h"
 
@@ -26,7 +29,8 @@ int Usage() {
          "       sg walk <graph folder> <start> <relationship type> <hops>\n"
          "       sg bench <graph folder> <starts file> <relationship type> "
          "<hops>\n"
-         "       sg serve <graph folder> <port> [address]\n";
+         "       sg serve <graph folder> <port> [address]\n"
+         "       sg query <graph folder> <query>\n";
   return 1;
 }
 
@@ -145,6 +149,36 @@ int Serve(const smollergraph::Graph& graph, std::string_view text,
   return 0;
 }
 
+// Runs a query in our subset of Cypher, and prints what it returns as a table,
+// or prints its plan, when it starts with EXPLAIN.
+int RunQuery(const smollergraph::Graph& graph, const char* text) {
+  absl::StatusOr<smollergraph::Query> query = smollergraph::Parse(text);
+  absl::StatusOr<smollergraph::Plan> plan =
+      query.ok() ? smollergraph::PlanQuery(*query) : query.status();
+  if (!plan.ok()) {
+    std::cerr << "sg: " << plan.status().message() << '\n';
+    return 1;
+  }
+  if (query->explain) {
+    std::cout << smollergraph::Explain(*plan);
+    return 0;
+  }
+  smollergraph::Result result = smollergraph::Run(*plan, graph);
+  for (size_t i = 0; i < result.columns.size(); ++i) {
+    std::cout << (i > 0 ? " | " : "") << result.columns[i];
+  }
+  std::cout << '\n';
+  for (const std::vector<smollergraph::NodeId>& row : result.rows) {
+    for (size_t i = 0; i < row.size(); ++i) {
+      std::cout << (i > 0 ? " | " : "") << graph.name(row[i]);
+    }
+    std::cout << '\n';
+  }
+  std::cout << result.rows.size()
+            << (result.rows.size() == 1 ? " row\n" : " rows\n");
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -153,7 +187,8 @@ int main(int argc, char** argv) {
   bool walk = command == "walk" && argc == 6;
   bool bench = command == "bench" && argc == 6;
   bool serve = command == "serve" && (argc == 4 || argc == 5);
-  if (!load && !walk && !bench && !serve) return Usage();
+  bool query = command == "query" && argc == 4;
+  if (!load && !walk && !bench && !serve && !query) return Usage();
 
   smollergraph::Graph graph;
   Clock::time_point opening = Clock::now();
@@ -166,5 +201,6 @@ int main(int argc, char** argv) {
   if (load) return Load(graph, argv[3]);
   if (walk) return Walk(graph, argv[3], argv[4], argv[5]);
   if (serve) return Serve(graph, argv[3], argc == 5 ? argv[4] : "127.0.0.1");
+  if (query) return RunQuery(graph, argv[3]);
   return Bench(graph, argv[3], argv[4], argv[5], opened.count());
 }

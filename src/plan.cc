@@ -2,7 +2,11 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <optional>
+#include <set>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -75,6 +79,54 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
     plan.columns.push_back(absl::StrCat(variable, ".name"));
   }
   return plan;
+}
+
+Result Run(const Plan& plan, const Graph& graph) {
+  // A single row to begin with, with its slots still to fill.
+  std::vector<std::vector<NodeId>> rows = {
+      std::vector<NodeId>(plan.slots.size())};
+  for (const Step& step : plan.steps) {
+    std::vector<std::vector<NodeId>> next;
+    for (const std::vector<NodeId>& row : rows) {
+      switch (step.kind) {
+        case Step::Kind::kNodeIndexSeek:
+          if (std::optional<NodeId> node = graph.Find(step.text)) {
+            next.push_back(row);
+            next.back()[step.to] = *node;
+          }
+          break;
+        case Step::Kind::kAllNodesScan:
+          for (NodeId node = 0; node < graph.node_count(); ++node) {
+            next.push_back(row);
+            next.back()[step.to] = node;
+          }
+          break;
+        case Step::Kind::kExpand:
+          for (NodeId node : graph.Neighbours(row[step.from], step.text)) {
+            next.push_back(row);
+            next.back()[step.to] = node;
+          }
+          break;
+        case Step::Kind::kFilter:
+          if (graph.name(row[step.from]) == step.text) next.push_back(row);
+          break;
+      }
+    }
+    rows = std::move(next);
+  }
+
+  Result result;
+  result.columns = plan.columns;
+  std::set<std::vector<NodeId>> seen;
+  for (const std::vector<NodeId>& row : rows) {
+    std::vector<NodeId> returned;
+    returned.reserve(plan.returns.size());
+    for (int slot : plan.returns) returned.push_back(row[slot]);
+    // DISTINCT keeps the first of rows that return the same nodes.
+    if (plan.distinct && !seen.insert(returned).second) continue;
+    result.rows.push_back(std::move(returned));
+  }
+  return result;
 }
 
 std::string Explain(const Plan& plan) {
