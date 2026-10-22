@@ -46,7 +46,8 @@ enable_testing()
 add_compile_options(-Wall -Wextra -Wpedantic)
 
 add_library(smollergraph src/graph.cc src/facts.cc src/query.cc src/pager.cc
-                         src/api.cc src/buffer_pool.cc src/name_index.cc)
+                         src/api.cc src/buffer_pool.cc src/name_index.cc
+                         src/lexer.cc)
 target_include_directories(smollergraph PUBLIC src)
 target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
                       absl::strings)
@@ -58,7 +59,7 @@ target_compile_definitions(sg PRIVATE SMOLLERGRAPH_UI="${CMAKE_SOURCE_DIR}/ui")
 add_executable(smollergraph_tests tests/graph_test.cc tests/pager_test.cc
                                   tests/record_file_test.cc tests/api_test.cc
                                   tests/buffer_pool_test.cc
-                                  tests/name_index_test.cc)
+                                  tests/name_index_test.cc tests/lexer_test.cc)
 target_link_libraries(smollergraph_tests PRIVATE smollergraph GTest::gtest_main)
 
 include(GoogleTest)
