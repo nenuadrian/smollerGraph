@@ -9,6 +9,16 @@ set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(FetchContent)
+# Abseil, Google's C++ library, for absl::Status and its string functions.
+set(ABSL_PROPAGATE_CXX_STD ON)
+FetchContent_Declare(
+  abseil
+  URL https://github.com/abseil/abseil-cpp/archive/refs/tags/20250512.1.tar.gz
+  SYSTEM
+  EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(abseil)
+
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/tags/v1.18.0.tar.gz
@@ -20,6 +30,8 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 add_library(smollergraph src/graph.cc src/facts.cc src/query.cc src/pager.cc)
 target_include_directories(smollergraph PUBLIC src)
+target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
+                      absl::strings)
 
 add_executable(sg src/main.cc)
 target_link_libraries(sg PRIVATE smollergraph)

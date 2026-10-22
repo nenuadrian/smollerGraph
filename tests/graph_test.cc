@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "facts.h"
 #include "gtest/gtest.h"
 #include "query.h"
@@ -41,15 +42,14 @@ TEST(GraphTest, KeepsItsRecordsInAFolder) {
   // earlier run.
   std::string path = ::testing::TempDir() + "graph_test_XXXXXX";
   ASSERT_NE(mkdtemp(path.data()), nullptr);
-  std::string error;
   {
     Graph graph;
-    ASSERT_TRUE(graph.Open(path, error)) << error;
+    ASSERT_EQ(graph.Open(path), absl::OkStatus());
     NodeId rabbit = graph.AddNode("Rabbit");
     graph.AddRelationship(rabbit, "EATS", graph.AddNode("Clover"));
   }
   Graph graph;
-  ASSERT_TRUE(graph.Open(path, error)) << error;
+  ASSERT_EQ(graph.Open(path), absl::OkStatus());
   std::optional<NodeId> rabbit = graph.Find("Rabbit");
   ASSERT_TRUE(rabbit);
   EXPECT_EQ(Names(graph, graph.Neighbours(*rabbit, "EATS")),
@@ -64,8 +64,7 @@ TEST(FactsTest, WalksTwoHopsDownTheFoodChain) {
       "(Rabbit)-[:EATS]->(Clover)\n"
       "(Field mouse)-[:EATS]->(Wheat)\n");
   Graph graph;
-  std::string error;
-  ASSERT_TRUE(LoadFacts(facts, graph, error)) << error;
+  ASSERT_EQ(LoadFacts(facts, graph), absl::OkStatus());
   EXPECT_EQ(Names(graph, Walk(graph, *graph.Find("Red fox"), "EATS", 2)),
             (std::vector<std::string>{"Clover", "Wheat"}));
 }
@@ -73,9 +72,9 @@ TEST(FactsTest, WalksTwoHopsDownTheFoodChain) {
 TEST(FactsTest, StopsAtALineThatIsNotAFact) {
   std::istringstream facts("(Red fox) EATS (Rabbit)\n");
   Graph graph;
-  std::string error;
-  EXPECT_FALSE(LoadFacts(facts, graph, error));
-  EXPECT_EQ(error, "(Red fox) EATS (Rabbit)");
+  absl::Status status = LoadFacts(facts, graph);
+  EXPECT_TRUE(absl::IsInvalidArgument(status));
+  EXPECT_EQ(status.message(), "(Red fox) EATS (Rabbit)");
 }
 
 }  // namespace

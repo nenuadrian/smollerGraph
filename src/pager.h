@@ -5,6 +5,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
+
+#include "absl/status/status.h"
 
 namespace smollergraph {
 
@@ -23,11 +26,10 @@ class Pager {
   Pager(const Pager&) = delete;
   Pager& operator=(const Pager&) = delete;
 
-  // Opens the file at `path`, creating it when it isn't there. Returns false,
-  // with the reason in `error`, when it can't.
-  bool Open(const std::string& path, std::string& error);
+  // Opens the file at `path`, creating it when it isn't there.
+  absl::Status Open(const std::string& path);
   // Opens a file with no name, which is deleted once it's closed.
-  bool OpenTemporary(std::string& error);
+  absl::Status OpenTemporary();
 
   PageId page_count() const { return page_count_; }
   // Reads page `id`, which has to be below page_count().
@@ -36,7 +38,7 @@ class Pager {
   void Write(PageId id, const Page& page);
 
  private:
-  bool Adopt(int fd, std::string& error);
+  absl::Status Adopt(int fd, std::string_view name);
 
   int fd_ = -1;
   PageId page_count_ = 0;

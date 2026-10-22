@@ -10,6 +10,9 @@
 #include <string>
 #include <vector>
 
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+
 namespace smollergraph {
 namespace {
 
@@ -24,30 +27,31 @@ void CopyField(char (&field)[N], std::string_view text) {
 }  // namespace
 
 Graph::Graph() {
-  std::string error;
-  if (!nodes_.OpenTemporary(error) || !relationships_.OpenTemporary(error)) {
+  absl::Status status = nodes_.OpenTemporary();
+  if (status.ok()) status = relationships_.OpenTemporary();
+  if (!status.ok()) {
     std::fprintf(stderr, "smollergraph: no temporary files: %s\n",
-                 error.c_str());
+                 status.ToString().c_str());
     std::abort();
   }
 }
 
-bool Graph::Open(const std::string& path, std::string& error) {
+absl::Status Graph::Open(const std::string& path) {
   // A folder that's there already, from an earlier run, is fine.
   if (mkdir(path.c_str(), 0755) != 0 && errno != EEXIST) {
-    error = std::strerror(errno);
-    return false;
+    return absl::ErrnoToStatus(errno, absl::StrCat("can't make ", path));
   }
-  if (!nodes_.Open(path + "/nodes", error) ||
-      !relationships_.Open(path + "/relationships", error)) {
-    return false;
-  }
+  // Each file opens if the one before it did, and the first error is the one
+  // we return.
+  absl::Status status = nodes_.Open(path + "/nodes");
+  if (status.ok()) status = relationships_.Open(path + "/relationships");
+  if (!status.ok()) return status;
   // There's no index on names yet, so we read each node to find them again.
   ids_.clear();
   for (NodeId id = 0; id < nodes_.count(); ++id) {
     ids_.emplace(nodes_.Read(id).name, id);
   }
-  return true;
+  return absl::OkStatus();
 }
 
 NodeId Graph::AddNode(std::string_view name) {

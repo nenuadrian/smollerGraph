@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "record_file.h"
 
 namespace smollergraph {
@@ -49,7 +50,7 @@ class Graph {
   // A graph in temporary files, which are deleted with it.
   Graph();
   // Opens the graph in the folder at `path`, creating it when it isn't there.
-  bool Open(const std::string& path, std::string& error);
+  absl::Status Open(const std::string& path);
 
   // Returns the node with this name, adding it the first time. The name has to
   // be at most kMaxName bytes long.

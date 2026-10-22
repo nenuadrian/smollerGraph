@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <string>
 
+#include "absl/status/status.h"
 #include "gtest/gtest.h"
 
 namespace smollergraph {
@@ -16,8 +17,7 @@ struct Pair {
 
 TEST(RecordFileTest, AppendsAcrossPages) {
   RecordFile<Pair> file;
-  std::string error;
-  ASSERT_TRUE(file.OpenTemporary(error)) << error;
+  ASSERT_EQ(file.OpenTemporary(), absl::OkStatus());
   // Enough records to fill the first page and start a second.
   for (uint32_t i = 0; i < RecordFile<Pair>::kPerPage + 10; ++i) {
     EXPECT_EQ(file.Append({.a = i, .b = i * 2}), i);
@@ -30,15 +30,14 @@ TEST(RecordFileTest, AppendsAcrossPages) {
 TEST(RecordFileTest, KeepsItsCountInTheHeader) {
   std::string path = ::testing::TempDir() + "record_file_test";
   std::remove(path.c_str());
-  std::string error;
   {
     RecordFile<Pair> file;
-    ASSERT_TRUE(file.Open(path, error)) << error;
+    ASSERT_EQ(file.Open(path), absl::OkStatus());
     file.Append({.a = 1, .b = 2});
     file.Append({.a = 3, .b = 4});
   }
   RecordFile<Pair> file;
-  ASSERT_TRUE(file.Open(path, error)) << error;
+  ASSERT_EQ(file.Open(path), absl::OkStatus());
   EXPECT_EQ(file.count(), 2);
   EXPECT_EQ(file.Read(1).a, 3);
 }

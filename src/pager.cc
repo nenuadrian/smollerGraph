@@ -10,6 +10,9 @@
 #include <cstring>
 #include <string>
 
+#include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
+
 namespace smollergraph {
 namespace {
 
@@ -26,29 +29,31 @@ Pager::~Pager() {
   if (fd_ >= 0) close(fd_);
 }
 
-bool Pager::Open(const std::string& path, std::string& error) {
-  return Adopt(open(path.c_str(), O_RDWR | O_CREAT, 0644), error);
+absl::Status Pager::Open(const std::string& path) {
+  return Adopt(open(path.c_str(), O_RDWR | O_CREAT, 0644), path);
 }
 
-bool Pager::OpenTemporary(std::string& error) {
+absl::Status Pager::OpenTemporary() {
   char path[] = "/tmp/smollergraph-XXXXXX";
   int fd = mkstemp(path);
   // Without a name, the file lasts as long as it's open.
   if (fd >= 0) unlink(path);
-  return Adopt(fd, error);
+  return Adopt(fd, "a temporary file");
 }
 
-bool Pager::Adopt(int fd, std::string& error) {
+absl::Status Pager::Adopt(int fd, std::string_view name) {
   struct stat info;
   if (fd < 0 || fstat(fd, &info) != 0) {
-    error = std::strerror(errno);
+    // ErrnoToStatus picks the status code that goes with the system's error.
+    absl::Status status =
+        absl::ErrnoToStatus(errno, absl::StrCat("can't open ", name));
     if (fd >= 0) close(fd);
-    return false;
+    return status;
   }
   if (fd_ >= 0) close(fd_);
   fd_ = fd;
   page_count_ = static_cast<PageId>(info.st_size / kPageSize);
-  return true;
+  return absl::OkStatus();
 }
 
 void Pager::Read(PageId id, Page& page) const {

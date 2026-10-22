@@ -5,7 +5,7 @@
 
 namespace smollergraph {
 
-bool LoadFacts(std::istream& in, Graph& graph, std::string& error) {
+absl::Status LoadFacts(std::istream& in, Graph& graph) {
   std::string line;
   while (std::getline(in, line)) {
     if (line.empty() || line.starts_with('#')) continue;
@@ -15,8 +15,7 @@ bool LoadFacts(std::istream& in, Graph& graph, std::string& error) {
     if (!line.starts_with('(') || !line.ends_with(')') ||
         open == std::string::npos || close == std::string::npos ||
         close < open) {
-      error = line;
-      return false;
+      return absl::InvalidArgumentError(line);
     }
     std::string_view text = line;
     std::string_view from = text.substr(1, open - 1);
@@ -26,14 +25,13 @@ bool LoadFacts(std::istream& in, Graph& graph, std::string& error) {
     // Names and types have to fit in the graph's records.
     if (from.size() > Graph::kMaxName || to.size() > Graph::kMaxName ||
         type.size() > Graph::kMaxType) {
-      error = line;
-      return false;
+      return absl::InvalidArgumentError(line);
     }
     NodeId from_id = graph.AddNode(from);
     NodeId to_id = graph.AddNode(to);
     graph.AddRelationship(from_id, type, to_id);
   }
-  return true;
+  return absl::OkStatus();
 }
 
 }  // namespace smollergraph

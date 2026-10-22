@@ -7,6 +7,7 @@
 #include <string>
 #include <type_traits>
 
+#include "absl/status/status.h"
 #include "pager.h"
 
 namespace smollergraph {
@@ -22,15 +23,19 @@ class RecordFile {
  public:
   static constexpr uint32_t kPerPage = kPageSize / sizeof(Record);
 
-  bool Open(const std::string& path, std::string& error) {
-    if (!pager_.Open(path, error)) return false;
+  absl::Status Open(const std::string& path) {
+    if (absl::Status status = pager_.Open(path); !status.ok()) {
+      return status;
+    }
     LoadCount();
-    return true;
+    return absl::OkStatus();
   }
-  bool OpenTemporary(std::string& error) {
-    if (!pager_.OpenTemporary(error)) return false;
+  absl::Status OpenTemporary() {
+    if (absl::Status status = pager_.OpenTemporary(); !status.ok()) {
+      return status;
+    }
     LoadCount();
-    return true;
+    return absl::OkStatus();
   }
 
   uint32_t count() const { return count_; }

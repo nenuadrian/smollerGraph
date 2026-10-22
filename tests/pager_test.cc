@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <string>
 
+#include "absl/status/status.h"
 #include "gtest/gtest.h"
 
 namespace smollergraph {
@@ -10,8 +11,7 @@ namespace {
 
 TEST(PagerTest, ReadsBackWhatItWrote) {
   Pager pager;
-  std::string error;
-  ASSERT_TRUE(pager.OpenTemporary(error)) << error;
+  ASSERT_EQ(pager.OpenTemporary(), absl::OkStatus());
   Page page{};
   page[0] = std::byte{42};
   page[kPageSize - 1] = std::byte{7};
@@ -27,16 +27,15 @@ TEST(PagerTest, ReadsBackWhatItWrote) {
 TEST(PagerTest, KeepsItsPagesInTheFile) {
   std::string path = ::testing::TempDir() + "pager_test";
   std::remove(path.c_str());
-  std::string error;
   {
     Pager pager;
-    ASSERT_TRUE(pager.Open(path, error)) << error;
+    ASSERT_EQ(pager.Open(path), absl::OkStatus());
     Page page{};
     page[100] = std::byte{1};
     pager.Write(0, page);
   }
   Pager pager;
-  ASSERT_TRUE(pager.Open(path, error)) << error;
+  ASSERT_EQ(pager.Open(path), absl::OkStatus());
   EXPECT_EQ(pager.page_count(), 1);
   Page read;
   pager.Read(0, read);

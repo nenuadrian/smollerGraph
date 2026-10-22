@@ -4,15 +4,16 @@
 #include <istream>
 #include <string>
 
+#include "absl/status/status.h"
 #include "graph.h"
 
 namespace smollergraph {
 
 // Reads facts into `graph`, one a line, written as Cypher patterns such as
 // (Red fox)-[:EATS]->(Rabbit). Blank lines and lines starting with # are
-// skipped. On a line it can't read, it stops, puts the line in `error` and
-// returns false.
-bool LoadFacts(std::istream& in, Graph& graph, std::string& error);
+// skipped. On a line it can't read, it stops, and returns an error with the
+// line as its message.
+absl::Status LoadFacts(std::istream& in, Graph& graph);
 
 }  // namespace smollergraph
 

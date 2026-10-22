@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <charconv>
 #include <chrono>
 #include <cstddef>
 #include <fstream>
@@ -10,6 +9,8 @@
 #include <string_view>
 #include <vector>
 
+#include "absl/status/status.h"
+#include "absl/strings/numbers.h"
 #include "facts.h"
 #include "graph.h"
 #include "query.h"
@@ -29,11 +30,7 @@ int Usage() {
 
 // Reads a number of hops, which has to be a whole number that isn't negative.
 bool ParseHops(std::string_view text, int& hops) {
-  auto [end, failed] =
-      std::from_chars(text.data(), text.data() + text.size(), hops);
-  if (failed == std::errc() && end == text.data() + text.size() && hops >= 0) {
-    return true;
-  }
+  if (absl::SimpleAtoi(text, &hops) && hops >= 0) return true;
   std::cerr << "sg: hops must be a whole number, not " << text << '\n';
   return false;
 }
@@ -45,10 +42,10 @@ int Load(smollergraph::Graph& graph, const char* path) {
     std::cerr << "sg: can't open " << path << '\n';
     return 1;
   }
-  std::string error;
   Clock::time_point start = Clock::now();
-  if (!smollergraph::LoadFacts(file, graph, error)) {
-    std::cerr << "sg: can't read the fact " << error << '\n';
+  if (absl::Status status = smollergraph::LoadFacts(file, graph);
+      !status.ok()) {
+    std::cerr << "sg: can't read the fact " << status.message() << '\n';
     return 1;
   }
   std::chrono::duration<double> took = Clock::now() - start;
@@ -131,11 +128,10 @@ int main(int argc, char** argv) {
   if (!load && !walk && !bench) return Usage();
 
   smollergraph::Graph graph;
-  std::string error;
   Clock::time_point opening = Clock::now();
-  if (!graph.Open(argv[2], error)) {
-    std::cerr << "sg: can't open the graph in " << argv[2] << ": " << error
-              << '\n';
+  if (absl::Status status = graph.Open(argv[2]); !status.ok()) {
+    std::cerr << "sg: can't open the graph in " << argv[2] << ": "
+              << status.message() << '\n';
     return 1;
   }
   std::chrono::duration<double, std::milli> opened = Clock::now() - opening;
