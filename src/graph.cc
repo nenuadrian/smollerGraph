@@ -29,6 +29,7 @@ void CopyField(char (&field)[N], std::string_view text) {
 Graph::Graph() {
   absl::Status status = nodes_.OpenTemporary();
   if (status.ok()) status = relationships_.OpenTemporary();
+  if (status.ok()) status = names_.OpenTemporary();
   if (!status.ok()) {
     std::fprintf(stderr, "smollergraph: no temporary files: %s\n",
                  status.ToString().c_str());
@@ -45,13 +46,8 @@ absl::Status Graph::Open(const std::string& path) {
   // we return.
   absl::Status status = nodes_.Open(path + "/nodes");
   if (status.ok()) status = relationships_.Open(path + "/relationships");
-  if (!status.ok()) return status;
-  // There's no index on names yet, so we read each node to find them again.
-  ids_.clear();
-  for (NodeId id = 0; id < nodes_.count(); ++id) {
-    ids_.emplace(nodes_.Read(id).name, id);
-  }
-  return absl::OkStatus();
+  if (status.ok()) status = names_.Open(path + "/names");
+  return status;
 }
 
 NodeId Graph::AddNode(std::string_view name) {
@@ -60,7 +56,7 @@ NodeId Graph::AddNode(std::string_view name) {
   CopyField(record.name, name);
   record.first_out = kNoRelationship;
   NodeId id = nodes_.Append(record);
-  ids_.emplace(std::string(name), id);
+  names_.Insert(name, id);
   return id;
 }
 
@@ -78,9 +74,7 @@ void Graph::AddRelationship(NodeId from, std::string_view type, NodeId to) {
 }
 
 std::optional<NodeId> Graph::Find(std::string_view name) const {
-  auto it = ids_.find(std::string(name));
-  if (it == ids_.end()) return std::nullopt;
-  return it->second;
+  return names_.Find(name);
 }
 
 std::vector<NodeId> Graph::Neighbours(NodeId node,

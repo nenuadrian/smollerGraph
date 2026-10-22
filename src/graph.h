@@ -6,10 +6,10 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 
 #include "absl/status/status.h"
+#include "name_index.h"
 #include "record_file.h"
 
 namespace smollergraph {
@@ -40,7 +40,7 @@ static_assert(sizeof(NodeRecord) == 32);
 static_assert(sizeof(RelationshipRecord) == 32);
 
 // A graph kept in two files of records, one for nodes and one for
-// relationships.
+// relationships, with an index that finds a node by its name.
 class Graph {
  public:
   // The longest name and relationship type that fit in their records.
@@ -56,6 +56,7 @@ class Graph {
   void Flush() {
     nodes_.Flush();
     relationships_.Flush();
+    names_.Flush();
   }
 
   // Returns the node with this name, adding it the first time. The name has to
@@ -76,19 +77,21 @@ class Graph {
   }
   size_t node_count() const { return nodes_.count(); }
   size_t relationship_count() const { return relationships_.count(); }
-  // How many pages the graph's two files have read and written.
+  // How many pages the graph's files have read and written.
   uint64_t page_reads() const {
-    return nodes_.page_reads() + relationships_.page_reads();
+    return nodes_.page_reads() + relationships_.page_reads() +
+           names_.page_reads();
   }
   uint64_t page_writes() const {
-    return nodes_.page_writes() + relationships_.page_writes();
+    return nodes_.page_writes() + relationships_.page_writes() +
+           names_.page_writes();
   }
 
  private:
   RecordFile<NodeRecord> nodes_;
   RecordFile<RelationshipRecord> relationships_;
-  // Names to node ids, built from the node records when the graph opens.
-  std::unordered_map<std::string, NodeId> ids_;
+  // Names to node ids, in a file of their own.
+  NameIndex names_;
 };
 
 }  // namespace smollergraph

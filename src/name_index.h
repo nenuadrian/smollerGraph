@@ -28,6 +28,8 @@ class NameIndex {
   absl::Status OpenTemporary();
   // Writes the changed pages to the file.
   void Flush() { pool_.Flush(); }
+  uint64_t page_reads() const { return pager_.reads(); }
+  uint64_t page_writes() const { return pager_.writes(); }
 
   // Returns the id kept for `name`, if there's one.
   std::optional<uint32_t> Find(std::string_view name) const;
