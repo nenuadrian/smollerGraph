@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>smollerGraph</title>
+  <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script type="module" src="graph.js"></script>
+</head>
+<body>
+  <header>
+    <h1>(smollerGraph)</h1>
+  </header>
+  <main>
+    <svg id="graph">
+      <defs>
+        <!-- An arrowhead for relationships, drawn back from the line's end so
+             it stops at the edge of the node's circle. -->
+        <marker id="arrow" viewBox="0 -5 10 10" refX="38" markerWidth="10"
+                markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
+          <path d="M0,-5L10,0L0,5"></path>
+        </marker>
+      </defs>
+    </svg>
+  </main>
+</body>
+</html>

@@ -19,6 +19,12 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
   server.set_socket_options([](socket_t fd) {
     httplib::set_socket_opt(fd, SOL_SOCKET, SO_REUSEADDR, 1);
   });
+  // The UI's files are served from the source tree, so changing one needs a
+  // reload in the browser, not a new build.
+  if (!server.set_mount_point("/", SMOLLERGRAPH_UI)) {
+    return absl::NotFoundError(
+        absl::StrCat("there's no folder ", SMOLLERGRAPH_UI));
+  }
   // The server answers requests on several threads at once. Nothing writes to
   // the graph while it's served, and pread doesn't move a shared position in
   // the file, so their reads don't get in each other's way.

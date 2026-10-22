@@ -1,0 +1,88 @@
+/* The colours of the series: a green-black field, chartreuse nodes and coral
+   relationships. */
+:root {
+  --field: #0a0f0e;
+  --panel: #111a17;
+  --line: #22322d;
+  --text: #dfe9e4;
+  --muted: #7e978d;
+  --node: #c8f169;
+  --relationship: #ff8c6b;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--field);
+  color: var(--text);
+  font: 16px "JetBrains Mono", monospace;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+  color: var(--node);
+}
+
+main {
+  display: flex;
+  min-height: 0;
+}
+
+#graph {
+  flex: 1;
+}
+
+.node circle {
+  fill: var(--field);
+  stroke: var(--node);
+  stroke-width: 2.5;
+  transition: fill 0.4s, stroke-width 0.4s;
+}
+
+/* Labels get an outline in the field's colour, so they read over lines. */
+text {
+  paint-order: stroke;
+  stroke: var(--field);
+  stroke-width: 5px;
+}
+
+.node text {
+  fill: var(--text);
+  text-anchor: middle;
+}
+
+.node {
+  cursor: pointer;
+}
+
+.relationship {
+  opacity: 0.55;
+  transition: opacity 0.4s;
+}
+
+.relationship line {
+  stroke: var(--relationship);
+  stroke-width: 1.5;
+  transition: stroke-width 0.4s;
+}
+
+.relationship text {
+  fill: var(--relationship);
+  font-size: 13px;
+  text-anchor: middle;
+}
+
+#arrow path {
+  fill: var(--relationship);
+}

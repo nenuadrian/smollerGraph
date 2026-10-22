@@ -22,7 +22,8 @@ COPY CPPLINT.cfg .clang-format ./
 COPY src smollergraph
 COPY tests tests
 COPY tools tools
-RUN find smollergraph tests tools -name '*.cc' -o -name '*.h' \
+COPY ui ui
+RUN find smollergraph tests tools ui -name '*.cc' -o -name '*.h' -o -name '*.js' \
  | xargs clang-format --dry-run --Werror \
  && cpplint --root=. --recursive --quiet smollergraph tests tools
 

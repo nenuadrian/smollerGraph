@@ -47,6 +47,7 @@ target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
 
 add_executable(sg src/main.cc src/server.cc)
 target_link_libraries(sg PRIVATE smollergraph httplib::httplib)
+target_compile_definitions(sg PRIVATE SMOLLERGRAPH_UI="${CMAKE_SOURCE_DIR}/ui")
 
 add_executable(smollergraph_tests tests/graph_test.cc tests/pager_test.cc
                                   tests/record_file_test.cc tests/api_test.cc)
