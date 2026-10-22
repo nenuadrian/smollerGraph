@@ -1,0 +1,11 @@
+# The animals, served by sg serve in a container: docker compose up, then open
+# http://localhost:8474.
+name: smollergraph
+services:
+  sg:
+    build: { context: ., target: build }
+    command: >-
+      sh -c "rm -rf animals.sg && ./build/sg load animals.sg data/animals.txt
+      && exec ./build/sg serve animals.sg 8474 0.0.0.0"
+    ports: ["8474:8474"]
+    init: true

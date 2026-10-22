@@ -14,6 +14,7 @@
 #include "facts.h"
 #include "graph.h"
 #include "query.h"
+#include "server.h"
 
 namespace {
 
@@ -24,7 +25,8 @@ int Usage() {
       << "usage: sg load <graph folder> <facts file>\n"
          "       sg walk <graph folder> <start> <relationship type> <hops>\n"
          "       sg bench <graph folder> <starts file> <relationship type> "
-         "<hops>\n";
+         "<hops>\n"
+         "       sg serve <graph folder> <port> [address]\n";
   return 1;
 }
 
@@ -118,6 +120,23 @@ int Bench(const smollergraph::Graph& graph, const char* path, const char* type,
   return 0;
 }
 
+// Serves the graph over HTTP on the port in `text`, until it's stopped. It
+// listens on this machine alone, unless it's given another address.
+int Serve(const smollergraph::Graph& graph, std::string_view text,
+          const char* address) {
+  int port = 0;
+  if (!absl::SimpleAtoi(text, &port) || port < 1 || port > 65535) {
+    std::cerr << "sg: a port is a number from 1 to 65535, not " << text << '\n';
+    return 1;
+  }
+  if (absl::Status status = smollergraph::Serve(graph, address, port);
+      !status.ok()) {
+    std::cerr << "sg: " << status.message() << '\n';
+    return 1;
+  }
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -125,7 +144,8 @@ int main(int argc, char** argv) {
   bool load = command == "load" && argc == 4;
   bool walk = command == "walk" && argc == 6;
   bool bench = command == "bench" && argc == 6;
-  if (!load && !walk && !bench) return Usage();
+  bool serve = command == "serve" && (argc == 4 || argc == 5);
+  if (!load && !walk && !bench && !serve) return Usage();
 
   smollergraph::Graph graph;
   Clock::time_point opening = Clock::now();
@@ -137,5 +157,6 @@ int main(int argc, char** argv) {
   std::chrono::duration<double, std::milli> opened = Clock::now() - opening;
   if (load) return Load(graph, argv[3]);
   if (walk) return Walk(graph, argv[3], argv[4], argv[5]);
+  if (serve) return Serve(graph, argv[3], argc == 5 ? argv[4] : "127.0.0.1");
   return Bench(graph, argv[3], argv[4], argv[5], opened.count());
 }

@@ -24,6 +24,17 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/refs/tags/v1.18.0.tar.gz
 )
 FetchContent_MakeAvailable(googletest)
+# sg serve answers HTTP with cpp-httplib, a library in one header, without
+# HTTPS or compression.
+set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF)
+set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF)
+set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF)
+set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF)
+FetchContent_Declare(
+  httplib
+  URL https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.60.1.tar.gz
+)
+FetchContent_MakeAvailable(httplib)
 enable_testing()
 
 add_compile_options(-Wall -Wextra -Wpedantic)
@@ -34,8 +45,8 @@ target_include_directories(smollergraph PUBLIC src)
 target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
                       absl::strings)
 
-add_executable(sg src/main.cc)
-target_link_libraries(sg PRIVATE smollergraph)
+add_executable(sg src/main.cc src/server.cc)
+target_link_libraries(sg PRIVATE smollergraph httplib::httplib)
 
 add_executable(smollergraph_tests tests/graph_test.cc tests/pager_test.cc
                                   tests/record_file_test.cc tests/api_test.cc)
