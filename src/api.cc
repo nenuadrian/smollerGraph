@@ -11,6 +11,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "query.h"
+#include "record_file.h"
 
 namespace smollergraph {
 namespace {
@@ -23,6 +24,26 @@ std::optional<uint32_t> ParseNumber(std::string_view text, uint32_t max) {
   uint32_t number = 0;
   if (!absl::SimpleAtoi(text, &number) || number > max) return std::nullopt;
   return number;
+}
+
+// The page a record is kept on, and where it starts in that page, as fields of
+// a JSON object.
+template <typename Record>
+std::string Where(uint32_t id) {
+  return absl::StrCat(", \"page\": ", RecordFile<Record>::PageOf(id),
+                      ", \"offset\": ", RecordFile<Record>::OffsetOf(id));
+}
+
+// A record's bytes in hex, sixteen a line, as xxd shows them.
+template <typename Record>
+std::string Hex(const Record& record) {
+  const auto* bytes = reinterpret_cast<const unsigned char*>(&record);
+  std::string hex;
+  for (size_t i = 0; i < sizeof(Record); ++i) {
+    if (i > 0) hex += i % 16 == 0 ? '\n' : ' ';
+    absl::StrAppend(&hex, absl::Hex(bytes[i], absl::kZeroPad2));
+  }
+  return hex;
 }
 
 }  // namespace
@@ -86,6 +107,32 @@ absl::StatusOr<std::string> WalkJson(const Graph& graph, std::string_view from,
     arrays.push_back(absl::StrCat("[", absl::StrJoin(reached, ", "), "]"));
   }
   return absl::StrCat("{\"hops\": [", absl::StrJoin(arrays, ", "), "]}");
+}
+
+absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
+  std::optional<uint32_t> node_id = ParseNumber(id, UINT32_MAX);
+  if (!node_id || *node_id >= graph.node_count()) {
+    return absl::NotFoundError(absl::StrCat("there's no node ", id));
+  }
+  NodeRecord node = graph.node(*node_id);
+  std::string json =
+      absl::StrCat("{\"id\": ", *node_id, ", \"name\": ", JsonString(node.name),
+                   Where<NodeRecord>(*node_id),
+                   ", \"bytes\": ", JsonString(Hex(node)), ", \"chain\": [");
+  // The chain from the node's first relationship to its last, which is the
+  // order they're kept in: newest first.
+  RelationshipId relationship_id = node.first_out;
+  while (relationship_id != kNoRelationship) {
+    RelationshipRecord relationship = graph.relationship(relationship_id);
+    if (relationship_id != node.first_out) json += ", ";
+    absl::StrAppend(&json, "{\"id\": ", relationship_id,
+                    ", \"type\": ", JsonString(relationship.type),
+                    ", \"to\": ", relationship.to,
+                    ", \"to_name\": ", JsonString(graph.name(relationship.to)),
+                    Where<RelationshipRecord>(relationship_id), "}");
+    relationship_id = relationship.next_out;
+  }
+  return json + "]}";
 }
 
 }  // namespace smollergraph

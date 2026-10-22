@@ -57,6 +57,10 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
                   request.get_param_value("hops")),
          response);
   });
+  server.Get(R"(/api/node/(\d+))", [&graph](const httplib::Request& request,
+                                            httplib::Response& response) {
+    Send(NodeJson(graph, request.matches[1].str()), response);
+  });
   if (!server.bind_to_port(address, port)) {
     return absl::UnavailableError(
         absl::StrCat("can't listen on ", address, " port ", port));

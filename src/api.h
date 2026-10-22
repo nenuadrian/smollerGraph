@@ -31,6 +31,11 @@ absl::StatusOr<std::string> WalkJson(const Graph& graph, std::string_view from,
                                      std::string_view type,
                                      std::string_view hops);
 
+// Returns node `id`'s record as it's kept on disk: its page, its offset in the
+// page and its bytes, then its chain of relationships, newest first, each with
+// where it's kept. An id the graph doesn't have is an error.
+absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id);
+
 }  // namespace smollergraph
 
 #endif  // SMOLLERGRAPH_API_H_

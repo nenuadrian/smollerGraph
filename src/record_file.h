@@ -40,6 +40,12 @@ class RecordFile {
 
   uint32_t count() const { return count_; }
 
+  // Page 0 is the header, so the records start on page 1.
+  static PageId PageOf(uint32_t id) { return 1 + id / kPerPage; }
+  static size_t OffsetOf(uint32_t id) {
+    return (id % kPerPage) * sizeof(Record);
+  }
+
   // Reads record `id`, which has to be below count().
   Record Read(uint32_t id) const {
     Page page;
@@ -68,12 +74,6 @@ class RecordFile {
   }
 
  private:
-  // Page 0 is the header, so the records start on page 1.
-  static PageId PageOf(uint32_t id) { return 1 + id / kPerPage; }
-  static size_t OffsetOf(uint32_t id) {
-    return (id % kPerPage) * sizeof(Record);
-  }
-
   void LoadCount() {
     count_ = 0;
     if (pager_.page_count() == 0) return;

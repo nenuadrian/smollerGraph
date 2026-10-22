@@ -5,7 +5,8 @@ A small graph database, built from scratch in C++ on the YouTube series
 in this repository, so you can check out the code at any point in a video.
 
 It keeps a graph in a folder of fixed-size records, in pages of 4 KiB: it loads facts written as
-Cypher patterns, one a line, and walks relationships of one type from a node.
+Cypher patterns, one a line, walks relationships of one type from a node, and draws the graph in a
+browser.
 
 ## Building and running
 
@@ -17,6 +18,18 @@ cmake --build build
 ./build/sg load animals.sg data/animals.txt
 ./build/sg walk animals.sg "Red fox" EATS 2
 ```
+
+## The UI
+
+`sg serve` serves a graph over HTTP, with a page that draws it with [D3](https://d3js.org), lights
+up a walk a hop at a time, and shows a node's record as it's kept on disk when it's clicked:
+
+```bash
+./build/sg serve animals.sg 8474
+```
+
+Then open http://localhost:8474. Or, with Docker, `docker compose up` loads the animals and serves
+them there.
 
 ## Testing
 

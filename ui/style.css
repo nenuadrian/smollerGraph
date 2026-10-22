@@ -141,3 +141,59 @@ output {
 .relationship.followed line {
   stroke-width: 4;
 }
+
+#inspector {
+  display: none;
+  width: 440px;
+  padding: 20px 24px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  overflow-y: auto;
+}
+
+#inspector.open {
+  display: block;
+}
+
+h2 {
+  margin: 0 0 6px;
+  color: var(--node);
+  font-size: 22px;
+}
+
+.where,
+h3 {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.bytes {
+  font: 13px / 1.7 "JetBrains Mono", monospace;
+}
+
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  white-space: pre-line;
+}
+
+/* The node being inspected, and the relationships in its chain. */
+.node.inspected circle {
+  stroke: var(--text);
+}
+
+.relationship.chained {
+  opacity: 1;
+}
+
+.relationship.chained line {
+  stroke-dasharray: 8 5;
+}

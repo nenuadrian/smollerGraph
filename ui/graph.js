@@ -5,9 +5,10 @@ const {width, height} = svg.node().getBoundingClientRect();
 const view = svg.append('g');
 
 // Dragging the background moves the view, and the mouse wheel zooms it.
-svg.call(d3.zoom().on('zoom', (event) => {
+const zoom = d3.zoom().on('zoom', (event) => {
   view.attr('transform', event.transform);
-}));
+});
+svg.call(zoom);
 
 const graph = await (await fetch('/api/graph')).json();
 // D3 finds the two ends of a link by its source and target.
@@ -106,4 +107,33 @@ function lightHop(hops, hop, type) {
   node.filter((d) => reached.has(d.id))
       .classed('reached', true)
       .classed('answer', hop === hops.length - 1);
+}
+
+// Clicking a node shows its record as sg keeps it on disk: where it is, its
+// bytes, and its chain of relationships, which light up in the graph too.
+node.on('click', (event, d) => inspect(d.id));
+
+async function inspect(id) {
+  const record = await (await fetch(`/api/node/${id}`)).json();
+  const panel = d3.select('#inspector');
+  if (!panel.classed('open')) {
+    // The panel takes room from the graph, so the view moves over by half of
+    // it, and the graph stays in the middle of what's left.
+    panel.classed('open', true);
+    svg.transition().call(zoom.translateBy, -panel.node().offsetWidth / 2, 0);
+  }
+  panel.select('h2').text(record.name);
+  panel.select('.where').text(
+      `Node ${record.id}: page ${record.page}, offset ${record.offset}`);
+  panel.select('.bytes').text(record.bytes);
+  panel.select('ol')
+      .selectAll('li')
+      .data(record.chain)
+      .join('li')
+      .text(
+          (d) => `${d.type} → ${d.to_name}\n` +
+              `Relationship ${d.id}: page ${d.page}, offset ${d.offset}`);
+  const chain = new Set(record.chain.map((d) => d.id));
+  node.classed('inspected', (d) => d.id === id);
+  link.classed('chained', (d) => chain.has(d.id));
 }
