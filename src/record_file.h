@@ -8,13 +8,16 @@
 #include <type_traits>
 
 #include "absl/status/status.h"
+#include "buffer_pool.h"
 #include "pager.h"
 
 namespace smollergraph {
 
 // A file of fixed-size records, packed into pages after a header page, which
 // holds how many records there are. A record's id says which page it's on and
-// where, so finding one needs no search.
+// where, so finding one needs no search. Its pages go through a buffer pool,
+// which writes the changed ones to the file when it needs their frames, or
+// when it's flushed or closed.
 template <typename Record>
 class RecordFile {
   static_assert(std::is_trivially_copyable_v<Record>,
@@ -22,8 +25,13 @@ class RecordFile {
 
  public:
   static constexpr uint32_t kPerPage = kPageSize / sizeof(Record);
+  // The most pages the pool keeps in memory, 64 MiB of them, which holds the
+  // million relationships we benchmark.
+  static constexpr size_t kPoolPages = 16384;
 
+  // Opening another file writes back the changes to the one that was open.
   absl::Status Open(const std::string& path) {
+    pool_.Clear();
     if (absl::Status status = pager_.Open(path); !status.ok()) {
       return status;
     }
@@ -31,12 +39,15 @@ class RecordFile {
     return absl::OkStatus();
   }
   absl::Status OpenTemporary() {
+    pool_.Clear();
     if (absl::Status status = pager_.OpenTemporary(); !status.ok()) {
       return status;
     }
     LoadCount();
     return absl::OkStatus();
   }
+  // Writes the changed pages to the file.
+  void Flush() { pool_.Flush(); }
 
   uint32_t count() const { return count_; }
   uint64_t page_reads() const { return pager_.reads(); }
@@ -50,18 +61,15 @@ class RecordFile {
 
   // Reads record `id`, which has to be below count().
   Record Read(uint32_t id) const {
-    Page page;
-    pager_.Read(PageOf(id), page);
+    PageHandle page = pool_.Fetch(PageOf(id));
     Record record;
-    std::memcpy(&record, page.data() + OffsetOf(id), sizeof(Record));
+    std::memcpy(&record, page.read().data() + OffsetOf(id), sizeof(Record));
     return record;
   }
 
   void Write(uint32_t id, const Record& record) {
-    Page page{};
-    if (PageOf(id) < pager_.page_count()) pager_.Read(PageOf(id), page);
-    std::memcpy(page.data() + OffsetOf(id), &record, sizeof(Record));
-    pager_.Write(PageOf(id), page);
+    PageHandle page = pool_.Fetch(PageOf(id));
+    std::memcpy(page.write().data() + OffsetOf(id), &record, sizeof(Record));
   }
 
   // Adds a record after the last one, and returns its id.
@@ -69,9 +77,8 @@ class RecordFile {
     uint32_t id = count_;
     Write(id, record);
     count_ = id + 1;
-    Page header{};
-    std::memcpy(header.data(), &count_, sizeof(count_));
-    pager_.Write(0, header);
+    PageHandle header = pool_.Fetch(0);
+    std::memcpy(header.write().data(), &count_, sizeof(count_));
     return id;
   }
 
@@ -79,12 +86,15 @@ class RecordFile {
   void LoadCount() {
     count_ = 0;
     if (pager_.page_count() == 0) return;
-    Page header;
-    pager_.Read(0, header);
-    std::memcpy(&count_, header.data(), sizeof(count_));
+    PageHandle header = pool_.Fetch(0);
+    std::memcpy(&count_, header.read().data(), sizeof(count_));
   }
 
+  // The pool is declared after the pager, so it's destroyed first, and
+  // writes its changed pages while the file is still open. It's mutable, as
+  // Read is const and still brings pages into the pool.
   Pager pager_;
+  mutable BufferPool pool_{pager_, kPoolPages};
   uint32_t count_ = 0;
 };
 

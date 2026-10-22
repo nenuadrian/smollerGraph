@@ -52,6 +52,12 @@ class Graph {
   // Opens the graph in the folder at `path`, creating it when it isn't there.
   absl::Status Open(const std::string& path);
 
+  // Writes the graph's changed pages to its files, which closing it does too.
+  void Flush() {
+    nodes_.Flush();
+    relationships_.Flush();
+  }
+
   // Returns the node with this name, adding it the first time. The name has to
   // be at most kMaxName bytes long.
   NodeId AddNode(std::string_view name);

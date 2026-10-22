@@ -50,6 +50,9 @@ int Load(smollergraph::Graph& graph, const char* path) {
     std::cerr << "sg: can't read the fact " << status.message() << '\n';
     return 1;
   }
+  // The changed pages are written before the clock stops, so the time
+  // includes them.
+  graph.Flush();
   std::chrono::duration<double> took = Clock::now() - start;
   std::cout << graph.node_count() << " nodes, " << graph.relationship_count()
             << " relationships, in " << std::fixed << std::setprecision(1)
