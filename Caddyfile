@@ -1,0 +1,7 @@
+# The web server in front of the database. It serves the page's files itself,
+# and passes the API's requests on to sg serve, which nothing else can reach.
+:8474 {
+	root * /srv
+	file_server
+	reverse_proxy /api/* sg:8474
+}

@@ -1,13 +1,24 @@
-# The animals, served by sg serve in a container: docker compose up, then open
-# http://localhost:8474. On a server, deploy.sh runs it, and it starts again
+# The animals, served in two containers: docker compose up, then open
+# http://localhost:8474. On a server, deploy.sh runs it, and both start again
 # when the server restarts.
 name: smollergraph
 services:
+  # The database: sg serve, on the network the two containers share, and not
+  # published on the machine.
   sg:
     build: { context: ., target: build }
     command: >-
       sh -c "rm -rf animals.sg && ./build/sg load animals.sg data/animals.txt
       && exec ./build/sg serve animals.sg 8474 0.0.0.0"
-    ports: ["8474:8474"]
     init: true
+    restart: unless-stopped
+  # The website: Caddy, with the page's files and the Caddyfile from the repo,
+  # published on port 8474.
+  web:
+    image: caddy:2.10.2-alpine
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./ui:/srv:ro
+    ports: ["8474:8474"]
+    depends_on: [sg]
     restart: unless-stopped

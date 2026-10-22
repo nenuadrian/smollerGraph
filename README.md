@@ -39,7 +39,8 @@ them there.
 ## Deploying
 
 `deploy.sh` copies the committed code to a server over SSH, and builds and runs it there with
-Docker Compose, which serves the animals on port 8474:
+Docker Compose. Caddy, in a container of its own, serves the page's files on port 8474 and passes
+`/api/` requests on to `sg serve`, which isn't published:
 
 ```bash
 ./deploy.sh debian@203.0.113.7
