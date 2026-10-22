@@ -6,6 +6,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "buffer_pool.h"
@@ -34,7 +35,8 @@ class NameIndex {
   void Insert(std::string_view name, uint32_t id);
 
  private:
-  // A name, padded with zeros, and the id kept for it.
+  // A name, padded with zeros, and the id kept for it. Above the leaves, the
+  // id is the page that holds the names from that one on.
   struct Entry {
     char name[kMaxName + 1];
     uint32_t value;
@@ -44,11 +46,13 @@ class NameIndex {
       (kPageSize - kHeaderSize) / sizeof(Entry);
 
   // A page of the tree, as it's laid out in the file: a header of 16 bytes,
-  // then its entries, in name order.
+  // then its entries, in name order. Above the leaves, `first` is the page for
+  // names before the first entry's.
   struct Node {
     uint32_t leaf;
     uint32_t count;
-    uint32_t unused[2];
+    PageId first;
+    uint32_t unused;
     Entry entries[kEntries];
   };
   static_assert(sizeof(Node) <= kPageSize);
@@ -64,6 +68,17 @@ class NameIndex {
   // How many of a page's entries come before `name`, which is where `name` is,
   // or where it would go.
   static uint32_t Position(const Node& node, std::string_view name);
+  // The page below `node` that holds `name`, or would.
+  static PageId Child(const Node& node, std::string_view name);
+
+  // Inserts `entry` under page `id`. When a page splits, returns the entry that
+  // the page above needs, for the new page.
+  std::optional<Entry> InsertUnder(PageId id, const Entry& entry);
+  // Puts `entry` in `node`, page `id`, at `at`, splitting the page when it's
+  // full.
+  std::optional<Entry> Add(PageId id, Node& node, uint32_t at,
+                           const Entry& entry);
+  void StoreHeader();
 
   void Start();
   Node Load(PageId id) const;

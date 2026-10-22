@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 
 namespace smollergraph {
 
@@ -28,6 +29,7 @@ absl::Status NameIndex::OpenTemporary() {
 
 std::optional<uint32_t> NameIndex::Find(std::string_view name) const {
   Node node = Load(root_);
+  while (!node.leaf) node = Load(Child(node, name));
   uint32_t at = Position(node, name);
   if (at < node.count && NameOf(node.entries[at]) == name) {
     return node.entries[at].value;
@@ -36,21 +38,66 @@ std::optional<uint32_t> NameIndex::Find(std::string_view name) const {
 }
 
 void NameIndex::Insert(std::string_view name, uint32_t id) {
-  Node node = Load(root_);
-  if (node.count == kEntries) {
-    std::fprintf(stderr, "smollergraph: the name index's page is full\n");
-    std::abort();
-  }
-  uint32_t at = Position(node, name);
-  // The entries from `at` on move along one, to make room.
-  std::copy_backward(node.entries + at, node.entries + node.count,
-                     node.entries + node.count + 1);
-  Entry& entry = node.entries[at];
-  std::memset(entry.name, 0, sizeof(entry.name));
+  Entry entry{};
   std::memcpy(entry.name, name.data(), std::min(name.size(), kMaxName));
   entry.value = id;
-  ++node.count;
-  Store(root_, node);
+  std::optional<Entry> split = InsertUnder(root_, entry);
+  if (split) {
+    // The root split, so a new root goes above its two halves, and the tree
+    // is a level taller.
+    Node root{};
+    root.first = root_;
+    root.entries[0] = *split;
+    root.count = 1;
+    root_ = pages_++;
+    Store(root_, root);
+  }
+  StoreHeader();
+}
+
+std::optional<NameIndex::Entry> NameIndex::InsertUnder(PageId id,
+                                                       const Entry& entry) {
+  Node node = Load(id);
+  if (node.leaf) return Add(id, node, Position(node, NameOf(entry)), entry);
+  std::optional<Entry> split = InsertUnder(Child(node, NameOf(entry)), entry);
+  if (!split) return std::nullopt;
+  return Add(id, node, Position(node, NameOf(*split)), *split);
+}
+
+std::optional<NameIndex::Entry> NameIndex::Add(PageId id, Node& node,
+                                               uint32_t at,
+                                               const Entry& entry) {
+  std::vector<Entry> entries(node.entries, node.entries + node.count);
+  entries.insert(entries.begin() + at, entry);
+  if (entries.size() <= kEntries) {
+    std::copy(entries.begin(), entries.end(), node.entries);
+    node.count = static_cast<uint32_t>(entries.size());
+    Store(id, node);
+    return std::nullopt;
+  }
+  // The page is full, so it keeps the first half, and a new page on its right
+  // takes the rest.
+  size_t half = entries.size() / 2;
+  Node right{};
+  right.leaf = node.leaf;
+  PageId right_id = pages_++;
+  Entry up = entries[half];
+  up.value = right_id;
+  if (node.leaf) {
+    std::copy(entries.begin() + half, entries.end(), right.entries);
+    right.count = static_cast<uint32_t>(entries.size() - half);
+  } else {
+    // Above the leaves, the middle entry moves up, and its page becomes the
+    // first of the right half.
+    right.first = entries[half].value;
+    std::copy(entries.begin() + half + 1, entries.end(), right.entries);
+    right.count = static_cast<uint32_t>(entries.size() - half - 1);
+  }
+  std::copy(entries.begin(), entries.begin() + half, node.entries);
+  node.count = static_cast<uint32_t>(half);
+  Store(id, node);
+  Store(right_id, right);
+  return up;
 }
 
 std::string_view NameIndex::NameOf(const Entry& entry) {
@@ -64,6 +111,17 @@ uint32_t NameIndex::Position(const Node& node, std::string_view name) {
         return NameOf(entry) < name;
       });
   return static_cast<uint32_t>(found - node.entries);
+}
+
+PageId NameIndex::Child(const Node& node, std::string_view name) {
+  // An entry's page holds the names from its name on, so `name` is under the
+  // last entry whose name isn't after it, or under `first`, when they all are.
+  const Entry* end = node.entries + node.count;
+  const Entry* after = std::upper_bound(
+      node.entries, end, name, [](std::string_view name, const Entry& entry) {
+        return name < NameOf(entry);
+      });
+  return after == node.entries ? node.first : (after - 1)->value;
 }
 
 // A new file gets a header and an empty leaf as its root. A file that has them
@@ -82,6 +140,12 @@ void NameIndex::Start() {
   }
   root_ = header.root;
   pages_ = header.pages;
+}
+
+void NameIndex::StoreHeader() {
+  Header header{root_, pages_};
+  PageHandle page = pool_.Fetch(0);
+  std::memcpy(page.write().data(), &header, sizeof(header));
 }
 
 // A page is copied in and out of its frame whole, as a Node, which is safer

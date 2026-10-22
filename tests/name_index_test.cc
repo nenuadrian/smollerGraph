@@ -35,5 +35,20 @@ TEST(NameIndexTest, KeepsItsNamesInAFile) {
   EXPECT_EQ(index.Find("Tawny owl"), 4);
 }
 
+TEST(NameIndexTest, SplitsAsItGrows) {
+  NameIndex index;
+  ASSERT_EQ(index.OpenTemporary(), absl::OkStatus());
+  // Enough names to split pages above the leaves too, in a jumbled order.
+  constexpr uint32_t kNames = 20000;
+  for (uint32_t i = 0; i < kNames; ++i) {
+    uint32_t n = i * 7919 % kNames;
+    index.Insert("Person " + std::to_string(n), n);
+  }
+  for (uint32_t n = 0; n < kNames; ++n) {
+    EXPECT_EQ(index.Find("Person " + std::to_string(n)), n);
+  }
+  EXPECT_EQ(index.Find("Person " + std::to_string(kNames)), std::nullopt);
+}
+
 }  // namespace
 }  // namespace smollergraph
