@@ -70,6 +70,13 @@ class Graph {
   }
   size_t node_count() const { return nodes_.count(); }
   size_t relationship_count() const { return relationships_.count(); }
+  // How many pages the graph's two files have read and written.
+  uint64_t page_reads() const {
+    return nodes_.page_reads() + relationships_.page_reads();
+  }
+  uint64_t page_writes() const {
+    return nodes_.page_writes() + relationships_.page_writes();
+  }
 
  private:
   RecordFile<NodeRecord> nodes_;

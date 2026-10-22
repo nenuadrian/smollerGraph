@@ -39,6 +39,8 @@ class RecordFile {
   }
 
   uint32_t count() const { return count_; }
+  uint64_t page_reads() const { return pager_.reads(); }
+  uint64_t page_writes() const { return pager_.writes(); }
 
   // Page 0 is the header, so the records start on page 1.
   static PageId PageOf(uint32_t id) { return 1 + id / kPerPage; }

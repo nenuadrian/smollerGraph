@@ -53,7 +53,9 @@ int Load(smollergraph::Graph& graph, const char* path) {
   std::chrono::duration<double> took = Clock::now() - start;
   std::cout << graph.node_count() << " nodes, " << graph.relationship_count()
             << " relationships, in " << std::fixed << std::setprecision(1)
-            << took.count() << " s\n";
+            << took.count() << " s\n"
+            << graph.page_reads() << " pages read, " << graph.page_writes()
+            << " written\n";
   return 0;
 }
 
@@ -105,18 +107,21 @@ int Bench(const smollergraph::Graph& graph, const char* path, const char* type,
     results += smollergraph::Walk(graph, start, type, hops).size();
   }
   std::vector<double> micros;
+  uint64_t reads_before = graph.page_reads();
   for (smollergraph::NodeId start : starts) {
     Clock::time_point begin = Clock::now();
     smollergraph::Walk(graph, start, type, hops);
     std::chrono::duration<double, std::micro> took = Clock::now() - begin;
     micros.push_back(took.count());
   }
+  double reads = static_cast<double>(graph.page_reads() - reads_before);
   std::sort(micros.begin(), micros.end());
   std::cout << std::fixed << std::setprecision(1) << "{\"open_ms\": " << open_ms
             << ", \"queries\": " << micros.size()
             << ", \"results\": " << results
             << ", \"median_us\": " << micros[micros.size() / 2]
-            << ", \"p95_us\": " << micros[micros.size() * 95 / 100] << "}\n";
+            << ", \"p95_us\": " << micros[micros.size() * 95 / 100]
+            << ", \"page_reads\": " << reads / micros.size() << "}\n";
   return 0;
 }
 

@@ -2,6 +2,7 @@
 #define SMOLLERGRAPH_PAGER_H_
 
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -37,11 +38,19 @@ class Pager {
   // Writes page `id`. Writing the page at page_count() adds it to the file.
   void Write(PageId id, const Page& page);
 
+  // How many pages this pager has read and written since it opened.
+  uint64_t reads() const { return reads_; }
+  uint64_t writes() const { return writes_; }
+
  private:
   absl::Status Adopt(int fd, std::string_view name);
 
   int fd_ = -1;
   PageId page_count_ = 0;
+  // Atomic, as sg serve reads on several threads at once, and mutable, as
+  // Read is const and still counts.
+  mutable std::atomic<uint64_t> reads_ = 0;
+  std::atomic<uint64_t> writes_ = 0;
 };
 
 }  // namespace smollergraph

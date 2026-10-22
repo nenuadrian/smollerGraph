@@ -62,6 +62,7 @@ void Pager::Read(PageId id, Page& page) const {
       static_cast<ssize_t>(kPageSize)) {
     Fail("can't read a page");
   }
+  ++reads_;
 }
 
 void Pager::Write(PageId id, const Page& page) {
@@ -71,6 +72,7 @@ void Pager::Write(PageId id, const Page& page) {
     Fail("can't write a page");
   }
   if (id >= page_count_) page_count_ = id + 1;
+  ++writes_;
 }
 
 }  // namespace smollergraph
