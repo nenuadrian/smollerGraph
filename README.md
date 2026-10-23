@@ -86,6 +86,16 @@ medians to `bench/results.json`:
 uv run --with kuzu --with neo4j python bench/compare.py
 ```
 
+`bench/ui.py` measures how many frames a second Chromium paints while the page's layout moves a
+made-up graph, from 500 nodes to 20,000, drawn with SVG, drawn on a canvas, and not drawn at all,
+with `sg serve` serving `ui/bench.html`, and writes them to `bench/ui.json`. It opens a window, as
+Chromium paints a canvas in software without one:
+
+```bash
+./build/sg serve animals.sg 8474 &
+uv run --with playwright==1.64.0 python bench/ui.py
+```
+
 ## With Docker
 
 The same build and tests on a clean Ubuntu, as CI runs them on each push:
