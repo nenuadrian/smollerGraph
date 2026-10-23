@@ -1,6 +1,6 @@
-# The animals, served in two containers: docker compose up, then open
-# http://localhost:8474. On a server, deploy.sh runs it, and both start again
-# when the server restarts.
+# The mammals and birds from Wikidata, served in two containers: docker compose
+# up, then open http://localhost:8474. On a server, deploy.sh runs it, and both
+# start again when the server restarts.
 name: smollergraph
 services:
   # The database: sg serve, on the network the two containers share, and not
@@ -8,8 +8,8 @@ services:
   sg:
     build: { context: ., target: build }
     command: >-
-      sh -c "rm -rf animals.sg && ./build/sg load animals.sg data/animals.txt
-      && exec ./build/sg serve animals.sg 8474 0.0.0.0"
+      sh -c "rm -rf wikidata.sg && ./build/sg load wikidata.sg data/wikidata.txt
+      && exec ./build/sg serve wikidata.sg 8474 0.0.0.0"
     init: true
     restart: unless-stopped
   # The website: Caddy, with the page's files and the Caddyfile from the repo,

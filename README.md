@@ -27,6 +27,20 @@ label and properties to match, joined by relationships of one type that go right
 `*N`, then an optional `WHERE` of comparisons joined by `AND`, such as `b.weight_g < 1000`, and
 `RETURN [DISTINCT]` properties of its variables. `EXPLAIN` in front shows the plan.
 
+## Mammals and birds from Wikidata
+
+`data/wikidata.txt` holds 21,834 taxa from [Wikidata](https://www.wikidata.org), which is under
+CC0: each species of mammal and bird that the IUCN has assessed, with its scientific name, its
+conservation status, its weight when Wikidata has one, and the genera, families, orders and classes
+above it, joined by `PARENT_TAXON`. `tools/wikidata.py` writes it from Wikidata's query service, in
+a few minutes:
+
+```bash
+python3 tools/wikidata.py data/wikidata.txt
+./build/sg load wikidata.sg data/wikidata.txt
+./build/sg query wikidata.sg "MATCH (s:Species {name: 'Red fox'})-[:PARENT_TAXON*3]->(o) RETURN o.name"
+```
+
 ## The UI
 
 `sg serve` serves a graph over HTTP, with a page that draws it with [D3](https://d3js.org), lights
