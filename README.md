@@ -22,9 +22,10 @@ cmake --build build
 ./build/sg query animals.sg "MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) RETURN c.name"
 ```
 
-`sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with an
-optional name each, joined by relationships of one type that go right, for one hop or `*N`, and
-`RETURN [DISTINCT]` the names of some of its variables. `EXPLAIN` in front shows the plan.
+`sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with
+properties to match in braces, joined by relationships of one type that go right, for one hop or
+`*N`, then an optional `WHERE` of comparisons joined by `AND`, such as `b.weight_g < 1000`, and
+`RETURN [DISTINCT]` properties of its variables. `EXPLAIN` in front shows the plan.
 
 ## The UI
 

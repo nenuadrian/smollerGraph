@@ -1,7 +1,6 @@
 #ifndef SMOLLERGRAPH_PARSER_H_
 #define SMOLLERGRAPH_PARSER_H_
 
-#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -12,10 +11,10 @@
 namespace smollergraph {
 
 // A node in a pattern, such as (a {name: 'Red fox'}). Its variable and its
-// name are both optional: () matches any node, and gives it no variable.
+// properties are both optional: () matches any node, and gives it no variable.
 struct NodePattern {
   std::string variable;
-  std::optional<std::string> name;
+  std::vector<Property> properties;
 };
 
 // A relationship from a node in a pattern to the next one, such as -[:EATS]->,
@@ -25,17 +24,34 @@ struct RelationshipPattern {
   int hops = 1;
 };
 
+// A variable's property, such as a.name or b.weight_g.
+struct PropertyLookup {
+  std::string variable;
+  std::string key;
+};
+
+// A comparison in WHERE, such as b.weight_g < 1000: a property, an operator,
+// which is one of = <> < <= > >=, and a value.
+struct Comparison {
+  PropertyLookup property;
+  std::string op;
+  Value value;
+};
+
 // A query in our subset of Cypher, such as
-//   MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) RETURN DISTINCT c.name
+//   MATCH (a {name: 'Red fox'})-[:EATS]->(b) WHERE b.weight_g < 1000
+//   RETURN DISTINCT b.name
 // with EXPLAIN in front of it to ask for its plan. Relationship i goes from
 // node i to node i + 1.
 struct Query {
   bool explain = false;
   std::vector<NodePattern> nodes;
   std::vector<RelationshipPattern> relationships;
+  // The comparisons in WHERE, joined by AND, so a row has to pass them all.
+  std::vector<Comparison> where;
   bool distinct = false;
-  // The variables whose names are returned, in order.
-  std::vector<std::string> returns;
+  // The properties returned, in order.
+  std::vector<PropertyLookup> returns;
 };
 
 // Reads a query. Returns an error that says what's wrong and where, when it

@@ -168,9 +168,11 @@ int RunQuery(const smollergraph::Graph& graph, const char* text) {
     std::cout << (i > 0 ? " | " : "") << result.columns[i];
   }
   std::cout << '\n';
-  for (const std::vector<smollergraph::NodeId>& row : result.rows) {
+  for (const std::vector<smollergraph::Cell>& row : result.rows) {
     for (size_t i = 0; i < row.size(); ++i) {
-      std::cout << (i > 0 ? " | " : "") << graph.name(row[i]);
+      const std::optional<smollergraph::Value>& value = row[i].value;
+      std::cout << (i > 0 ? " | " : "")
+                << (value ? smollergraph::ValueText(*value) : "null");
     }
     std::cout << '\n';
   }

@@ -45,6 +45,15 @@ TEST(LexerTest, SplitsAQueryIntoTokens) {
             "word:name end");
 }
 
+TEST(LexerTest, ReadsComparisons) {
+  absl::StatusOr<std::vector<Token>> tokens =
+      Lex("WHERE a.legs >= 4 AND a.diet <> 'herbivore'");
+  ASSERT_TRUE(tokens.ok()) << tokens.status();
+  EXPECT_EQ(Describe(*tokens),
+            "word:WHERE word:a . word:legs >= number:4 word:AND word:a . "
+            "word:diet <> string:herbivore end");
+}
+
 TEST(LexerTest, SaysWhatItCannotRead) {
   EXPECT_EQ(Lex("MATCH (a {name: 'Red fox})").status().message(),
             "no closing quote for the string at 16");

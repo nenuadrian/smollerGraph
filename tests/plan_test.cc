@@ -36,28 +36,43 @@ TEST(PlanTest, ScansWhenTheStartHasNoName) {
                       "RETURN a.name"),
             "AllNodesScan (a)\n"
             "Expand (a)-[:LIVES_IN]->(p)\n"
-            "Filter (p {name: 'Meadow'})\n"
+            "Filter p.name = 'Meadow'\n"
             "Return a.name\n");
+}
+
+TEST(PlanTest, FiltersANodeAsSoonAsItHasASlot) {
+  EXPECT_EQ(Explained("MATCH (a {legs: 2})-[:EATS]->(b) "
+                      "WHERE b.diet = 'omnivore' AND a.weight_g > 100 "
+                      "RETURN b.name"),
+            "AllNodesScan (a)\n"
+            "Filter a.legs = 2\n"
+            "Filter a.weight_g > 100\n"
+            "Expand (a)-[:EATS]->(b)\n"
+            "Filter b.diet = 'omnivore'\n"
+            "Return b.name\n");
 }
 
 TEST(PlanTest, RefusesVariablesItCannotPlan) {
   EXPECT_EQ(Explained("MATCH (a) RETURN b.name"),
             "there's no variable called b");
+  EXPECT_EQ(Explained("MATCH (a) WHERE b.legs = 2 RETURN a.name"),
+            "there's no variable called b");
   EXPECT_EQ(Explained("MATCH (a)-[:EATS]->(a) RETURN a.name"),
             "the variable a is on two nodes");
 }
 
-// The names a query returns, a row to a string, with commas between columns.
+// The values a query returns, a row to a string, with commas between columns.
 std::vector<std::string> Answers(const Graph& graph, const std::string& text) {
   absl::StatusOr<Query> query = Parse(text);
   if (!query.ok()) return {std::string(query.status().message())};
   absl::StatusOr<Plan> plan = PlanQuery(*query);
   if (!plan.ok()) return {std::string(plan.status().message())};
   std::vector<std::string> answers;
-  for (const std::vector<NodeId>& row : Run(*plan, graph).rows) {
+  for (const std::vector<Cell>& row : Run(*plan, graph).rows) {
     std::string answer;
-    for (NodeId node : row) {
-      answer += (answer.empty() ? "" : ", ") + graph.name(node);
+    for (const Cell& cell : row) {
+      answer += (answer.empty() ? "" : ", ") +
+                (cell.value ? ValueText(*cell.value) : "null");
     }
     answers.push_back(answer);
   }
@@ -68,6 +83,10 @@ class RunTest : public ::testing::Test {
  protected:
   void SetUp() override {
     std::istringstream facts(
+        "(Red fox {weight_g: 6000, diet: 'omnivore'})\n"
+        "(Rabbit {weight_g: 2000, diet: 'herbivore'})\n"
+        "(Field mouse {weight_g: 25, diet: 'omnivore'})\n"
+        "(Tawny owl {weight_g: 500, diet: 'carnivore'})\n"
         "(Red fox)-[:EATS]->(Rabbit)\n"
         "(Red fox)-[:EATS]->(Field mouse)\n"
         "(Tawny owl)-[:EATS]->(Field mouse)\n"
@@ -102,6 +121,22 @@ TEST_F(RunTest, ReturnsDistinctRows) {
   EXPECT_EQ(
       Answers(graph_, "MATCH (a)-[:EATS]->(b) RETURN DISTINCT b.name"),
       (std::vector<std::string>{"Rabbit", "Field mouse", "Clover", "Wheat"}));
+  // DISTINCT compares values: the fox and the field mouse are both omnivores.
+  EXPECT_EQ(Answers(graph_, "MATCH (a)-[:EATS]->(b) RETURN DISTINCT a.diet"),
+            (std::vector<std::string>{"omnivore", "herbivore", "carnivore"}));
+}
+
+TEST_F(RunTest, FiltersAndReturnsProperties) {
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (a)-[:EATS]->(b) WHERE b.weight_g < 1000 "
+                    "RETURN a.name, b.name, b.weight_g"),
+            (std::vector<std::string>{"Red fox, Field mouse, 25",
+                                      "Tawny owl, Field mouse, 25"}));
+  // The clover has no weight, so it returns null.
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (a {name: 'Rabbit'})-[:EATS]->(b) "
+                    "RETURN b.name, b.weight_g"),
+            std::vector<std::string>{"Clover, null"});
 }
 
 }  // namespace

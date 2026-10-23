@@ -1,11 +1,14 @@
 #include "plan.h"
 
 #include <algorithm>
+#include <compare>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <set>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -22,15 +25,68 @@ std::string SlotName(const Plan& plan, int slot) {
   return variable.empty() ? absl::StrCat("_", slot) : variable;
 }
 
-// A name on a node after the start keeps the rows that reach a node with that
-// name, with a filter on the node's slot.
-void AddFilter(const NodePattern& node, int slot, Plan& plan) {
-  if (node.name) {
-    plan.steps.push_back({Step::Kind::kFilter, slot, -1, *node.name});
+// A value as Cypher writes it: a string in quotes, and a number as it is.
+std::string Literal(const Value& value) {
+  if (const std::string* text = std::get_if<std::string>(&value)) {
+    return absl::StrCat("'", *text, "'");
+  }
+  return ValueText(value);
+}
+
+// The name a node of the pattern has, if it gives it one, which the index can
+// find.
+std::optional<std::string> NameOf(const NodePattern& node) {
+  for (const Property& property : node.properties) {
+    const std::string* name = std::get_if<std::string>(&property.value);
+    if (property.key == "name" && name != nullptr) return *name;
+  }
+  return std::nullopt;
+}
+
+// Adds the filters on a node of the pattern, once it has a slot: one for each
+// of its properties, and one for each comparison in WHERE on its variable.
+// They come as early as they can, so the rows they drop are expanded no
+// further. After a seek, the name has been found already.
+void AddFilters(const Query& query, const NodePattern& node, int slot,
+                bool seek, Plan& plan) {
+  for (const Property& property : node.properties) {
+    if (seek && property.key == "name") continue;
+    plan.steps.push_back(
+        {Step::Kind::kFilter, slot, -1, property.key, "=", property.value});
+  }
+  if (node.variable.empty()) return;
+  for (const Comparison& comparison : query.where) {
+    if (comparison.property.variable != node.variable) continue;
+    plan.steps.push_back({Step::Kind::kFilter, slot, -1,
+                          comparison.property.key, comparison.op,
+                          comparison.value});
   }
 }
 
+// Whether a property compares with a value as `op` says. A missing property
+// is Cypher's null, which no comparison keeps. Values of different types are
+// never equal, and have no order.
+bool Compare(const std::optional<Value>& property, const std::string& op,
+             const Value& value) {
+  if (!property) return false;
+  if (property->index() != value.index()) return op == "<>";
+  std::strong_ordering order = *property <=> value;
+  if (op == "=") return order == 0;
+  if (op == "<>") return order != 0;
+  if (op == "<") return order < 0;
+  if (op == "<=") return order <= 0;
+  if (op == ">") return order > 0;
+  return order >= 0;
+}
+
 }  // namespace
+
+std::string ValueText(const Value& value) {
+  if (const int64_t* number = std::get_if<int64_t>(&value)) {
+    return absl::StrCat(*number);
+  }
+  return std::get<std::string>(value);
+}
 
 absl::StatusOr<Plan> PlanQuery(const Query& query) {
   Plan plan;
@@ -44,15 +100,28 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
     }
   }
 
+  for (const Comparison& comparison : query.where) {
+    const std::string& variable = comparison.property.variable;
+    if (std::none_of(query.nodes.begin(), query.nodes.end(),
+                     [&](const NodePattern& node) {
+                       return node.variable == variable;
+                     })) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("there's no variable called ", variable));
+    }
+  }
+
   // A start with a name is found in the index. Without one, each node in the
   // graph is a start.
   const NodePattern& start = query.nodes[0];
   plan.slots.push_back(start.variable);
-  if (start.name) {
-    plan.steps.push_back({Step::Kind::kNodeIndexSeek, -1, 0, *start.name});
+  std::optional<std::string> name = NameOf(start);
+  if (name) {
+    plan.steps.push_back({Step::Kind::kNodeIndexSeek, -1, 0, *name});
   } else {
     plan.steps.push_back({Step::Kind::kAllNodesScan, -1, 0, ""});
   }
+  AddFilters(query, start, 0, name.has_value(), plan);
   for (size_t i = 0; i < query.relationships.size(); ++i) {
     const RelationshipPattern& relationship = query.relationships[i];
     const NodePattern& node = query.nodes[i + 1];
@@ -65,18 +134,21 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
       plan.steps.push_back(
           {Step::Kind::kExpand, from, from + 1, relationship.type});
     }
-    AddFilter(node, static_cast<int>(plan.slots.size()) - 1, plan);
+    AddFilters(query, node, static_cast<int>(plan.slots.size()) - 1, false,
+               plan);
   }
 
   plan.distinct = query.distinct;
-  for (const std::string& variable : query.returns) {
-    auto found = std::find(plan.slots.begin(), plan.slots.end(), variable);
+  for (const PropertyLookup& lookup : query.returns) {
+    auto found =
+        std::find(plan.slots.begin(), plan.slots.end(), lookup.variable);
     if (found == plan.slots.end()) {
       return absl::InvalidArgumentError(
-          absl::StrCat("there's no variable called ", variable));
+          absl::StrCat("there's no variable called ", lookup.variable));
     }
     plan.returns.push_back(static_cast<int>(found - plan.slots.begin()));
-    plan.columns.push_back(absl::StrCat(variable, ".name"));
+    plan.keys.push_back(lookup.key);
+    plan.columns.push_back(absl::StrCat(lookup.variable, ".", lookup.key));
   }
   return plan;
 }
@@ -108,7 +180,10 @@ Result Run(const Plan& plan, const Graph& graph) {
           }
           break;
         case Step::Kind::kFilter:
-          if (graph.name(row[step.from]) == step.text) next.push_back(row);
+          if (Compare(graph.FindProperty(row[step.from], step.text), step.op,
+                      step.value)) {
+            next.push_back(row);
+          }
           break;
       }
     }
@@ -117,14 +192,18 @@ Result Run(const Plan& plan, const Graph& graph) {
 
   Result result;
   result.columns = plan.columns;
-  std::set<std::vector<NodeId>> seen;
+  std::set<std::vector<std::optional<Value>>> seen;
   for (const std::vector<NodeId>& row : rows) {
-    std::vector<NodeId> returned;
-    returned.reserve(plan.returns.size());
-    for (int slot : plan.returns) returned.push_back(row[slot]);
-    // DISTINCT keeps the first of rows that return the same nodes.
-    if (plan.distinct && !seen.insert(returned).second) continue;
-    result.rows.push_back(std::move(returned));
+    std::vector<Cell> cells;
+    std::vector<std::optional<Value>> values;
+    for (size_t i = 0; i < plan.returns.size(); ++i) {
+      NodeId node = row[plan.returns[i]];
+      cells.push_back({node, graph.FindProperty(node, plan.keys[i])});
+      values.push_back(cells.back().value);
+    }
+    // DISTINCT keeps the first of rows that return the same values.
+    if (plan.distinct && !seen.insert(std::move(values)).second) continue;
+    result.rows.push_back(std::move(cells));
   }
   return result;
 }
@@ -147,8 +226,9 @@ std::string Explain(const Plan& plan) {
                         ")\n");
         break;
       case Step::Kind::kFilter:
-        absl::StrAppend(&text, "Filter (", SlotName(plan, step.from),
-                        " {name: '", step.text, "'})\n");
+        absl::StrAppend(&text, "Filter ", SlotName(plan, step.from), ".",
+                        step.text, " ", step.op, " ", Literal(step.value),
+                        "\n");
         break;
     }
   }

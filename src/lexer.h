@@ -15,7 +15,7 @@ enum class TokenKind {
   kWord,    // a keyword or a name: MATCH, a, name, EATS
   kString,  // a string, such as 'Red fox', without its quotes
   kNumber,  // a whole number, such as 2
-  kSymbol,  // one character of punctuation, such as ( or >
+  kSymbol,  // punctuation, such as ( or >, or a comparison, such as <=
   kEnd,     // after the last token
 };
 

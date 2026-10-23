@@ -168,7 +168,7 @@ absl::StatusOr<std::string> QueryJson(const Graph& graph,
     if (i > 0) json += ", ";
     json += "[";
     for (size_t j = 0; j < result.rows[i].size(); ++j) {
-      NodeId node = result.rows[i][j];
+      NodeId node = result.rows[i][j].node;
       absl::StrAppend(&json, j > 0 ? ", " : "", "{\"id\": ", node,
                       ", \"name\": ", JsonString(graph.name(node)), "}");
     }

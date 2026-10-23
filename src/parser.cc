@@ -1,9 +1,11 @@
 #include "parser.h"
 
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <string>
 #include <utility>
 #include <vector>
@@ -18,6 +20,8 @@ namespace {
 
 // The most hops one relationship in a pattern can stand for.
 constexpr int kMaxHops = 10;
+// The operators a comparison in WHERE can have.
+constexpr std::string_view kOperators[] = {"=", "<>", "<", "<=", ">", ">="};
 
 bool EqualsIgnoringCase(std::string_view a, std::string_view b) {
   if (a.size() != b.size()) return false;
@@ -41,8 +45,9 @@ class Parser {
   // What's wrong with the query, once a part has failed.
   const absl::Status& status() const { return status_; }
 
-  // query := [EXPLAIN] MATCH node (relationship node)* RETURN [DISTINCT]
-  //          item (, item)*
+  // query := [EXPLAIN] MATCH node (relationship node)*
+  //          [WHERE comparison (AND comparison)*]
+  //          RETURN [DISTINCT] lookup (, lookup)*
   bool ParseQuery(Query& query) {
     query.explain = Keyword("EXPLAIN");
     if (!ExpectKeyword("MATCH")) return false;
@@ -55,12 +60,19 @@ class Parser {
       query.relationships.push_back(relationship);
       query.nodes.push_back(node);
     }
+    if (Keyword("WHERE")) {
+      do {
+        Comparison comparison;
+        if (!ParseComparison(comparison)) return false;
+        query.where.push_back(std::move(comparison));
+      } while (Keyword("AND"));
+    }
     if (!ExpectKeyword("RETURN")) return false;
     query.distinct = Keyword("DISTINCT");
     do {
-      std::string variable;
-      if (!ParseItem(variable)) return false;
-      query.returns.push_back(variable);
+      PropertyLookup lookup;
+      if (!ParseLookup(lookup)) return false;
+      query.returns.push_back(std::move(lookup));
     } while (Symbol(","));
     if (Peek().kind != TokenKind::kEnd) return Fail("the end of the query");
     return true;
@@ -76,17 +88,12 @@ class Parser {
   }
 
  private:
-  // node := ( [variable] [{ name : string }] )
+  // node := ( [variable] [properties] )
   bool ParseNode(NodePattern& node) {
     node = {};
     if (!ExpectSymbol("(")) return false;
     if (Peek().kind == TokenKind::kWord) node.variable = Next().text;
-    if (Symbol("{")) {
-      if (!ExpectWord("name") || !ExpectSymbol(":")) return false;
-      if (Peek().kind != TokenKind::kString) return Fail("a name in quotes");
-      node.name = Next().text;
-      if (!ExpectSymbol("}")) return false;
-    }
+    if (IsSymbol("{") && !ParseProperties(node.properties)) return false;
     return ExpectSymbol(")");
   }
 
@@ -141,11 +148,26 @@ class Parser {
     return true;
   }
 
-  // item := variable . name
-  bool ParseItem(std::string& variable) {
-    if (Peek().kind != TokenKind::kWord) return Fail("a variable to return");
-    variable = Next().text;
-    return ExpectSymbol(".") && ExpectWord("name");
+  // comparison := lookup operator value
+  bool ParseComparison(Comparison& comparison) {
+    if (!ParseLookup(comparison.property)) return false;
+    if (Peek().kind != TokenKind::kSymbol ||
+        std::find(std::begin(kOperators), std::end(kOperators), Peek().text) ==
+            std::end(kOperators)) {
+      return Fail("a comparison");
+    }
+    comparison.op = Next().text;
+    return ParseValue(comparison.value);
+  }
+
+  // lookup := variable . key
+  bool ParseLookup(PropertyLookup& lookup) {
+    if (Peek().kind != TokenKind::kWord) return Fail("a variable");
+    lookup.variable = Next().text;
+    if (!ExpectSymbol(".")) return false;
+    if (Peek().kind != TokenKind::kWord) return Fail("a key");
+    lookup.key = Next().text;
+    return true;
   }
 
   const Token& Peek() const { return tokens_[next_]; }
@@ -175,14 +197,6 @@ class Parser {
   }
   bool ExpectKeyword(std::string_view keyword) {
     return Keyword(keyword) || Fail(std::string(keyword));
-  }
-  // A property's name is a word, which Cypher compares case and all.
-  bool ExpectWord(std::string_view word) {
-    if (Peek().kind != TokenKind::kWord || Peek().text != word) {
-      return Fail(std::string(word));
-    }
-    ++next_;
-    return true;
   }
 
   // Says what was expected, where, and what was there.
