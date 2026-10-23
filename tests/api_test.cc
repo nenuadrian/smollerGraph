@@ -1,5 +1,6 @@
 #include "api.h"
 
+#include <cstdint>
 #include <string>
 
 #include "absl/status/status.h"
@@ -57,24 +58,30 @@ TEST(WalkJsonTest, SaysWhatsWrongWithARequest) {
       WalkJson(graph, "Red fox", "EATS", "11").status()));
 }
 
-TEST(NodeJsonTest, ShowsWhereARecordAndItsChainAreKept) {
+TEST(NodeJsonTest, ShowsWhereARecordAndItsChainsAreKept) {
   Graph graph;
   NodeId fox = graph.AddNode("Red fox");
-  graph.AddRelationship(fox, "EATS", graph.AddNode("Rabbit"));
+  RelationshipId eats =
+      graph.AddRelationship(fox, "EATS", graph.AddNode("Rabbit"));
+  graph.SetRelationshipProperty(eats, "source", std::string("Wikipedia"));
   graph.AddRelationship(fox, "LIVES_IN", graph.AddNode("Forest"));
+  graph.SetProperty(fox, "legs", int64_t{4});
   absl::StatusOr<std::string> json = NodeJson(graph, "0");
   ASSERT_TRUE(json.ok()) << json.status();
   // The name, padded with zeros, then the first relationship's id, 1, with its
-  // lowest byte first, as x86 and ARM keep numbers, and no first property,
-  // which is all ones.
+  // lowest byte first, as x86 and ARM keep numbers, and the first property's,
+  // 1, as the relationship's source is property 0.
   EXPECT_EQ(*json,
             R"({"id": 0, "name": "Red fox", "page": 1, "offset": 0, )"
             R"("bytes": "52 65 64 20 66 6f 78 00 00 00 00 00 00 00 00 00)"
-            R"(\u000a00 00 00 00 00 00 00 00 01 00 00 00 ff ff ff ff", )"
-            R"("chain": [{"id": 1, "type": "LIVES_IN", "to": 2, )"
-            R"("to_name": "Forest", "page": 1, "offset": 32}, )"
-            R"({"id": 0, "type": "EATS", "to": 1, "to_name": "Rabbit", )"
-            R"("page": 1, "offset": 0}]})");
+            R"(\u000a00 00 00 00 00 00 00 00 01 00 00 00 01 00 00 00", )"
+            R"("chain": [{"id": 1, "type": "LIVES_IN", "properties": {}, )"
+            R"("to": 2, "to_name": "Forest", "page": 1, "offset": 32}, )"
+            R"({"id": 0, "type": "EATS", "properties": )"
+            R"({"source": "Wikipedia"}, "to": 1, "to_name": "Rabbit", )"
+            R"("page": 1, "offset": 0}], )"
+            R"("properties": [{"id": 1, "key": "legs", "value": 4, )"
+            R"("page": 1, "offset": 32}]})");
 }
 
 TEST(NodeJsonTest, RefusesANodeTheGraphDoesNotHave) {
@@ -87,13 +94,17 @@ TEST(NodeJsonTest, RefusesANodeTheGraphDoesNotHave) {
 TEST(QueryJsonTest, AnswersWithRowsOrAPlan) {
   Graph graph;
   NodeId fox = graph.AddNode("Red fox");
-  graph.AddRelationship(fox, "EATS", graph.AddNode("Rabbit"));
+  NodeId rabbit = graph.AddNode("Rabbit");
+  graph.AddRelationship(fox, "EATS", rabbit);
+  graph.SetProperty(rabbit, "legs", int64_t{4});
   absl::StatusOr<std::string> rows = QueryJson(
-      graph, "MATCH (a {name: 'Red fox'})-[:EATS]->(b) RETURN b.name");
+      graph,
+      "MATCH (a {name: 'Red fox'})-[:EATS]->(b) RETURN b.name, b.legs, a.legs");
   ASSERT_TRUE(rows.ok()) << rows.status();
-  EXPECT_EQ(
-      *rows,
-      R"({"columns": ["b.name"], "rows": [[{"id": 1, "name": "Rabbit"}]]})");
+  // The fox has no legs property here, so a.legs is null.
+  EXPECT_EQ(*rows, R"({"columns": ["b.name", "b.legs", "a.legs"], "rows": )"
+                   R"([[{"id": 1, "value": "Rabbit"}, {"id": 1, "value": 4}, )"
+                   R"({"id": 0, "value": null}]]})");
   absl::StatusOr<std::string> plan =
       QueryJson(graph, "EXPLAIN MATCH (a) RETURN a.name");
   ASSERT_TRUE(plan.ok()) << plan.status();

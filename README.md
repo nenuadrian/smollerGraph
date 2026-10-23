@@ -30,7 +30,8 @@ properties to match in braces, joined by relationships of one type that go right
 ## The UI
 
 `sg serve` serves a graph over HTTP, with a page that draws it with [D3](https://d3js.org), lights
-up a walk a hop at a time, and shows a node's record as it's kept on disk when it's clicked:
+up a walk a hop at a time, runs Cypher queries, and shows a node's record as it's kept on disk when
+it's clicked, with its chains of properties and relationships:
 
 ```bash
 ./build/sg serve animals.sg 8474

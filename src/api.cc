@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -36,6 +37,26 @@ template <typename Record>
 std::string Where(uint32_t id) {
   return absl::StrCat(", \"page\": ", RecordFile<Record>::PageOf(id),
                       ", \"offset\": ", RecordFile<Record>::OffsetOf(id));
+}
+
+// A value as JSON: a number as it is, a string in quotes, and null for a
+// missing one.
+std::string ValueJson(const std::optional<Value>& value) {
+  if (!value) return "null";
+  if (const int64_t* number = std::get_if<int64_t>(&*value)) {
+    return absl::StrCat(*number);
+  }
+  return JsonString(std::get<std::string>(*value));
+}
+
+// Properties as a JSON object, with a field for each key.
+std::string PropertiesJson(const std::vector<Property>& properties) {
+  std::string json = "{";
+  for (size_t i = 0; i < properties.size(); ++i) {
+    absl::StrAppend(&json, i > 0 ? ", " : "", JsonString(properties[i].key),
+                    ": ", ValueJson(properties[i].value));
+  }
+  return json + "}";
 }
 
 // A record's bytes in hex, sixteen a line, as xxd shows them.
@@ -139,12 +160,27 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
   while (relationship_id != kNoRelationship) {
     RelationshipRecord relationship = graph.relationship(relationship_id);
     if (relationship_id != node.first_out) json += ", ";
-    absl::StrAppend(&json, "{\"id\": ", relationship_id,
-                    ", \"type\": ", JsonString(relationship.type),
-                    ", \"to\": ", relationship.to,
-                    ", \"to_name\": ", JsonString(graph.name(relationship.to)),
-                    Where<RelationshipRecord>(relationship_id), "}");
+    absl::StrAppend(
+        &json, "{\"id\": ", relationship_id,
+        ", \"type\": ", JsonString(relationship.type), ", \"properties\": ",
+        PropertiesJson(graph.RelationshipProperties(relationship_id)),
+        ", \"to\": ", relationship.to,
+        ", \"to_name\": ", JsonString(graph.name(relationship.to)),
+        Where<RelationshipRecord>(relationship_id), "}");
     relationship_id = relationship.next_out;
+  }
+  // Its properties' chain, newest first too, each record with where it's
+  // kept.
+  json += "], \"properties\": [";
+  PropertyId property_id = node.first_property;
+  while (property_id != kNoProperty) {
+    PropertyRecord property = graph.property(property_id);
+    if (property_id != node.first_property) json += ", ";
+    absl::StrAppend(&json, "{\"id\": ", property_id,
+                    ", \"key\": ", JsonString(property.key),
+                    ", \"value\": ", ValueJson(ValueOf(property)),
+                    Where<PropertyRecord>(property_id), "}");
+    property_id = property.next;
   }
   return json + "]}";
 }
@@ -168,9 +204,9 @@ absl::StatusOr<std::string> QueryJson(const Graph& graph,
     if (i > 0) json += ", ";
     json += "[";
     for (size_t j = 0; j < result.rows[i].size(); ++j) {
-      NodeId node = result.rows[i][j].node;
-      absl::StrAppend(&json, j > 0 ? ", " : "", "{\"id\": ", node,
-                      ", \"name\": ", JsonString(graph.name(node)), "}");
+      const Cell& cell = result.rows[i][j];
+      absl::StrAppend(&json, j > 0 ? ", " : "", "{\"id\": ", cell.node,
+                      ", \"value\": ", ValueJson(cell.value), "}");
     }
     json += "]";
   }

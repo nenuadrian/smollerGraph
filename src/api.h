@@ -37,12 +37,13 @@ absl::StatusOr<std::string> WalkJson(const Graph& graph, std::string_view from,
 
 // Returns node `id`'s record as it's kept on disk: its page, its offset in the
 // page and its bytes, then its chain of relationships, newest first, each with
-// where it's kept. An id the graph doesn't have is an error.
+// its properties and where it's kept, and its chain of properties, newest
+// first, each with where it's kept. An id the graph doesn't have is an error.
 absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id);
 
 // Parses, plans and runs a query in our subset of Cypher, from a request. It
-// answers with the columns and the rows, each node with its id and name, or
-// with the plan, after EXPLAIN, or with what's wrong with the query.
+// answers with the columns and the rows, each value with the id of its node,
+// or with the plan, after EXPLAIN, or with what's wrong with the query.
 absl::StatusOr<std::string> QueryJson(const Graph& graph,
                                       std::string_view text);
 

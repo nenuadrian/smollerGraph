@@ -130,8 +130,22 @@ function lightHop(hops, hop, type) {
 }
 
 // Clicking a node shows its record as sg keeps it on disk: where it is, its
-// bytes, and its chain of relationships, which light up in the graph too.
+// bytes, its chain of properties, and its chain of relationships, which light
+// up in the graph too.
 node.on('click', (event, d) => inspect(d.id));
+
+// A value as Cypher writes it: a string in quotes, and a number as it is.
+function literal(value) {
+  return typeof value === 'string' ? `'${value}'` : `${value}`;
+}
+
+// A relationship's properties in braces, as in a pattern, or nothing.
+function braces(properties) {
+  const pairs = Object.entries(properties).map(([key, value]) => {
+    return `${key}: ${literal(value)}`;
+  });
+  return pairs.length ? ` {${pairs.join(', ')}}` : '';
+}
 
 async function inspect(id) {
   const record = await (await fetch(`/api/node/${id}`)).json();
@@ -146,12 +160,19 @@ async function inspect(id) {
   panel.select('.where').text(
       `Node ${record.id}: page ${record.page}, offset ${record.offset}`);
   panel.select('.bytes').text(record.bytes);
-  panel.select('ol')
+  panel.select('.properties')
+      .selectAll('li')
+      .data(record.properties)
+      .join('li')
+      .text(
+          (d) => `${d.key}: ${literal(d.value)}\n` +
+              `Property ${d.id}: page ${d.page}, offset ${d.offset}`);
+  panel.select('.relationships')
       .selectAll('li')
       .data(record.chain)
       .join('li')
       .text(
-          (d) => `${d.type} → ${d.to_name}\n` +
+          (d) => `${d.type}${braces(d.properties)} → ${d.to_name}\n` +
               `Relationship ${d.id}: page ${d.page}, offset ${d.offset}`);
   const chain = new Set(record.chain.map((d) => d.id));
   node.classed('inspected', (d) => d.id === id);
@@ -185,7 +206,7 @@ queryForm.on('submit', async (event) => {
       .selectAll('td')
       .data((d) => d)
       .join('td')
-      .text((d) => d.name);
+      .text((d) => d.value ?? 'null');
   // The query's nodes take the place of a walk's.
   timers.forEach(clearTimeout);
   const returned = new Set(answer.rows.flat().map((d) => d.id));
