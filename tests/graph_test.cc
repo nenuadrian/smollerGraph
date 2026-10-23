@@ -1,5 +1,6 @@
 #include "graph.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <optional>
 #include <sstream>
@@ -37,6 +38,29 @@ TEST(GraphTest, NeighboursFollowOneType) {
             std::vector<std::string>{"Rabbit"});
 }
 
+TEST(GraphTest, KeepsPropertiesInAChain) {
+  Graph graph;
+  NodeId fox = graph.AddNode("Red fox");
+  graph.SetProperty(fox, "weight_g", int64_t{5000});
+  graph.SetProperty(fox, "diet", std::string("omnivore"));
+  // Setting a key again replaces its value, in the record it already has.
+  graph.SetProperty(fox, "weight_g", int64_t{6000});
+  EXPECT_EQ(graph.FindProperty(fox, "weight_g"), Value(int64_t{6000}));
+  EXPECT_EQ(graph.FindProperty(fox, "name"), Value(std::string("Red fox")));
+  EXPECT_EQ(graph.FindProperty(fox, "legs"), std::nullopt);
+  std::vector<Property> properties = graph.Properties(fox);
+  ASSERT_EQ(properties.size(), 2);
+  EXPECT_EQ(properties[0].key, "weight_g");
+  EXPECT_EQ(properties[1].value, Value(std::string("omnivore")));
+
+  RelationshipId eats =
+      graph.AddRelationship(fox, "EATS", graph.AddNode("Rabbit"));
+  graph.SetRelationshipProperty(eats, "source", std::string("Wikipedia"));
+  ASSERT_EQ(graph.RelationshipProperties(eats).size(), 1);
+  EXPECT_EQ(graph.RelationshipProperties(eats)[0].value,
+            Value(std::string("Wikipedia")));
+}
+
 TEST(GraphTest, KeepsItsRecordsInAFolder) {
   // A new folder, with a name of its own, so nothing is left in it from an
   // earlier run.
@@ -47,6 +71,7 @@ TEST(GraphTest, KeepsItsRecordsInAFolder) {
     ASSERT_EQ(graph.Open(path), absl::OkStatus());
     NodeId rabbit = graph.AddNode("Rabbit");
     graph.AddRelationship(rabbit, "EATS", graph.AddNode("Clover"));
+    graph.SetProperty(rabbit, "legs", int64_t{4});
   }
   Graph graph;
   ASSERT_EQ(graph.Open(path), absl::OkStatus());
@@ -54,6 +79,7 @@ TEST(GraphTest, KeepsItsRecordsInAFolder) {
   ASSERT_TRUE(rabbit);
   EXPECT_EQ(Names(graph, graph.Neighbours(*rabbit, "EATS")),
             std::vector<std::string>{"Clover"});
+  EXPECT_EQ(graph.FindProperty(*rabbit, "legs"), Value(int64_t{4}));
 }
 
 TEST(FactsTest, WalksTwoHopsDownTheFoodChain) {
