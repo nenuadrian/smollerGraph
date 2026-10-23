@@ -1,8 +1,10 @@
 #include "api.h"
 
+#include <chrono>
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_set>
 #include <variant>
 #include <vector>
 
@@ -10,17 +12,13 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_join.h"
 #include "parser.h"
 #include "plan.h"
-#include "query.h"
 #include "record_file.h"
 
 namespace smollergraph {
 namespace {
 
-// The most hops a walk can take: the UI draws a few hops, not the whole graph.
-constexpr uint32_t kMaxHops = 10;
 // How many names the UI suggests at a time.
 constexpr size_t kSuggestions = 8;
 
@@ -90,24 +88,6 @@ std::string JsonString(std::string_view text) {
   return json + '"';
 }
 
-std::string GraphJson(const Graph& graph) {
-  std::string json = "{\"nodes\": [";
-  for (NodeId id = 0; id < graph.node_count(); ++id) {
-    if (id > 0) json += ", ";
-    absl::StrAppend(&json, "{\"id\": ", id,
-                    ", \"name\": ", JsonString(graph.name(id)), "}");
-  }
-  json += "], \"relationships\": [";
-  for (RelationshipId id = 0; id < graph.relationship_count(); ++id) {
-    RelationshipRecord record = graph.relationship(id);
-    if (id > 0) json += ", ";
-    absl::StrAppend(&json, "{\"id\": ", id, ", \"from\": ", record.from,
-                    ", \"to\": ", record.to,
-                    ", \"type\": ", JsonString(record.type), "}");
-  }
-  return json + "]}";
-}
-
 std::string NamesJson(const Graph& graph, std::string_view prefix) {
   std::string json = "{\"names\": [";
   std::vector<std::string> names =
@@ -122,38 +102,16 @@ std::string ErrorJson(std::string_view message) {
   return absl::StrCat("{\"error\": ", JsonString(message), "}");
 }
 
-absl::StatusOr<std::string> WalkJson(const Graph& graph, std::string_view from,
-                                     std::string_view type,
-                                     std::string_view hops) {
-  std::optional<NodeId> start = graph.Find(from);
-  if (!start) {
-    return absl::NotFoundError(absl::StrCat("there's no node called ", from));
-  }
-  std::optional<uint32_t> count = ParseNumber(hops, kMaxHops);
-  if (!count) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("hops is a number from 0 to ", kMaxHops));
-  }
-  // Each hop's nodes are an array of their ids, and the hops are an array of
-  // those.
-  std::vector<std::string> arrays;
-  for (const std::vector<NodeId>& reached :
-       WalkHops(graph, *start, type, *count)) {
-    arrays.push_back(absl::StrCat("[", absl::StrJoin(reached, ", "), "]"));
-  }
-  return absl::StrCat("{\"hops\": [", absl::StrJoin(arrays, ", "), "]}");
-}
-
 absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
   std::optional<uint32_t> node_id = ParseNumber(id, UINT32_MAX);
   if (!node_id || *node_id >= graph.node_count()) {
     return absl::NotFoundError(absl::StrCat("there's no node ", id));
   }
   NodeRecord node = graph.node(*node_id);
-  std::string json =
-      absl::StrCat("{\"id\": ", *node_id, ", \"name\": ", JsonString(node.name),
-                   Where<NodeRecord>(*node_id),
-                   ", \"bytes\": ", JsonString(Hex(node)), ", \"chain\": [");
+  std::string json = absl::StrCat(
+      "{\"id\": ", *node_id, ", \"name\": ", JsonString(node.name),
+      ", \"label\": ", JsonString(node.label), Where<NodeRecord>(*node_id),
+      ", \"bytes\": ", JsonString(Hex(node)), ", \"chain\": [");
   // The chain from the node's first relationship to its last, which is the
   // order they're kept in: newest first.
   RelationshipId relationship_id = node.first_out;
@@ -166,6 +124,7 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
         PropertiesJson(graph.RelationshipProperties(relationship_id)),
         ", \"to\": ", relationship.to,
         ", \"to_name\": ", JsonString(graph.name(relationship.to)),
+        ", \"to_label\": ", JsonString(graph.label(relationship.to)),
         Where<RelationshipRecord>(relationship_id), "}");
     relationship_id = relationship.next_out;
   }
@@ -187,6 +146,9 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
 
 absl::StatusOr<std::string> QueryJson(const Graph& graph,
                                       std::string_view text) {
+  std::chrono::steady_clock::time_point start =
+      std::chrono::steady_clock::now();
+  uint64_t reads = graph.page_reads();
   absl::StatusOr<Query> query = Parse(text);
   if (!query.ok()) return query.status();
   absl::StatusOr<Plan> plan = PlanQuery(*query);
@@ -195,12 +157,17 @@ absl::StatusOr<std::string> QueryJson(const Graph& graph,
     return absl::StrCat("{\"plan\": ", JsonString(Explain(*plan)), "}");
   }
   Result result = Run(*plan, graph);
-  std::string json = "{\"columns\": [";
+  std::chrono::duration<double, std::milli> took =
+      std::chrono::steady_clock::now() - start;
+  std::string json =
+      absl::StrCat("{\"ms\": ", absl::SixDigits(took.count()),
+                   ", \"pages\": ", graph.page_reads() - reads,
+                   ", \"count\": ", result.rows.size(), ", \"columns\": [");
   for (size_t i = 0; i < result.columns.size(); ++i) {
     absl::StrAppend(&json, i > 0 ? ", " : "", JsonString(result.columns[i]));
   }
   json += "], \"rows\": [";
-  for (size_t i = 0; i < result.rows.size(); ++i) {
+  for (size_t i = 0; i < result.rows.size() && i < kMaxRows; ++i) {
     if (i > 0) json += ", ";
     json += "[";
     for (size_t j = 0; j < result.rows[i].size(); ++j) {
@@ -209,6 +176,39 @@ absl::StatusOr<std::string> QueryJson(const Graph& graph,
                       ", \"value\": ", ValueJson(cell.value), "}");
     }
     json += "]";
+  }
+
+  // The nodes the rows return, each once, in the order they come, for the page
+  // to draw, with the relationships from one of them to another.
+  std::vector<NodeId> drawn;
+  std::unordered_set<NodeId> seen;
+  for (const std::vector<Cell>& row : result.rows) {
+    for (const Cell& cell : row) {
+      if (drawn.size() < kMaxDrawn && seen.insert(cell.node).second) {
+        drawn.push_back(cell.node);
+      }
+    }
+  }
+  json += "], \"nodes\": [";
+  for (size_t i = 0; i < drawn.size(); ++i) {
+    absl::StrAppend(&json, i > 0 ? ", " : "", "{\"id\": ", drawn[i],
+                    ", \"name\": ", JsonString(graph.name(drawn[i])),
+                    ", \"label\": ", JsonString(graph.label(drawn[i])), "}");
+  }
+  json += "], \"relationships\": [";
+  bool first = true;
+  for (NodeId from : drawn) {
+    RelationshipId id = graph.node(from).first_out;
+    while (id != kNoRelationship) {
+      RelationshipRecord relationship = graph.relationship(id);
+      if (seen.contains(relationship.to)) {
+        absl::StrAppend(&json, first ? "" : ", ", "{\"id\": ", id,
+                        ", \"from\": ", from, ", \"to\": ", relationship.to,
+                        ", \"type\": ", JsonString(relationship.type), "}");
+        first = false;
+      }
+      id = relationship.next_out;
+    }
   }
   return json + "]}";
 }

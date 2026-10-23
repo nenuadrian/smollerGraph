@@ -5,57 +5,51 @@
   <title>smollerGraph</title>
   <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="page.css">
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-  <script type="module" src="graph.js"></script>
+  <script type="module" src="app.js"></script>
 </head>
 <body>
   <header>
     <h1>(smollerGraph)</h1>
-    <form id="walk">
-      <label>Walk from
-        <span class="names">
-          <input name="from" value="Red fox" autocomplete="off">
-          <ul></ul>
-        </span>
-      </label>
-      <label>along <input name="type" value="EATS"></label>
-      <label>for <input name="hops" type="number" value="2" min="0" max="10">
-        hops</label>
-      <button>Walk</button>
-      <output></output>
-    </form>
-    <form id="query">
-      <input name="q" spellcheck="false"
-             value="MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) RETURN c.name">
-      <button>Run</button>
+    <form id="search">
+      <input name="name" placeholder="Find a node by its name"
+             autocomplete="off" spellcheck="false">
+      <ul></ul>
     </form>
   </header>
+  <aside id="queries">
+    <form id="query">
+      <textarea name="q" spellcheck="false">MATCH (s:Species)-[:PARENT_TAXON]->(g:Genus)-[:PARENT_TAXON]->(f {name: 'Canidae'}) RETURN s.name, g.name, f.name</textarea>
+      <button>Run</button>
+    </form>
+    <h2>History</h2>
+    <ol id="history"></ol>
+  </aside>
   <main>
-    <svg id="graph">
-      <defs>
-        <!-- An arrowhead for relationships, drawn back from the line's end so
-             it stops at the edge of the node's circle. -->
-        <marker id="arrow" viewBox="0 -5 10 10" refX="38" markerWidth="10"
-                markerHeight="10" markerUnits="userSpaceOnUse" orient="auto">
-          <path d="M0,-5L10,0L0,5"></path>
-        </marker>
-      </defs>
-    </svg>
-    <section id="results">
-      <p class="error"></p>
-      <pre class="plan"></pre>
-      <table></table>
+    <nav id="tabs">
+      <button value="graph" class="active">Graph</button>
+      <button value="table">Table</button>
+      <button value="plan">Plan</button>
+    </nav>
+    <section id="graph" class="tab active">
+      <canvas></canvas>
+      <ul class="legend"></ul>
     </section>
-    <aside id="inspector">
-      <h2></h2>
-      <p class="where"></p>
-      <pre class="bytes"></pre>
-      <h3>Properties, newest first</h3>
-      <ol class="properties"></ol>
-      <h3>Relationships, newest first</h3>
-      <ol class="relationships"></ol>
-    </aside>
+    <section id="table" class="tab"><table></table></section>
+    <section id="plan" class="tab"><pre></pre></section>
+    <p id="status"></p>
   </main>
+  <aside id="inspector">
+    <h2></h2>
+    <p class="label"></p>
+    <button class="expand">Expand: draw where it leads</button>
+    <p class="where"></p>
+    <pre class="bytes"></pre>
+    <h3>Properties, newest first</h3>
+    <ol class="properties"></ol>
+    <h3>Relationships, newest first</h3>
+    <ol class="relationships"></ol>
+  </aside>
 </body>
 </html>

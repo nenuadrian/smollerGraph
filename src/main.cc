@@ -152,6 +152,8 @@ int Serve(const smollergraph::Graph& graph, std::string_view text,
 // Runs a query in our subset of Cypher, and prints what it returns as a table,
 // or prints its plan, when it starts with EXPLAIN.
 int RunQuery(const smollergraph::Graph& graph, const char* text) {
+  Clock::time_point start = Clock::now();
+  uint64_t reads = graph.page_reads();
   absl::StatusOr<smollergraph::Query> query = smollergraph::Parse(text);
   absl::StatusOr<smollergraph::Plan> plan =
       query.ok() ? smollergraph::PlanQuery(*query) : query.status();
@@ -164,6 +166,7 @@ int RunQuery(const smollergraph::Graph& graph, const char* text) {
     return 0;
   }
   smollergraph::Result result = smollergraph::Run(*plan, graph);
+  std::chrono::duration<double, std::milli> took = Clock::now() - start;
   for (size_t i = 0; i < result.columns.size(); ++i) {
     std::cout << (i > 0 ? " | " : "") << result.columns[i];
   }
@@ -176,8 +179,13 @@ int RunQuery(const smollergraph::Graph& graph, const char* text) {
     }
     std::cout << '\n';
   }
+  // How long the query took, and the pages it read, before the rows were
+  // printed.
+  uint64_t pages = graph.page_reads() - reads;
   std::cout << result.rows.size()
-            << (result.rows.size() == 1 ? " row\n" : " rows\n");
+            << (result.rows.size() == 1 ? " row" : " rows") << " in "
+            << std::fixed << std::setprecision(2) << took.count() << " ms, "
+            << pages << (pages == 1 ? " page" : " pages") << " read\n";
   return 0;
 }
 

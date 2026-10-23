@@ -16,17 +16,6 @@ TEST(JsonStringTest, EscapesWhatJsonDoesNotAllow) {
   EXPECT_EQ(JsonString("a \"b\" \\ c\n"), R"("a \"b\" \\ c\u000a")");
 }
 
-TEST(GraphJsonTest, ListsNodesAndRelationships) {
-  Graph graph;
-  NodeId fox = graph.AddNode("Red fox");
-  graph.AddRelationship(fox, "EATS", graph.AddNode("Rabbit"));
-  EXPECT_EQ(GraphJson(graph),
-            R"({"nodes": [{"id": 0, "name": "Red fox"}, )"
-            R"({"id": 1, "name": "Rabbit"}], )"
-            R"("relationships": [{"id": 0, "from": 0, "to": 1, )"
-            R"("type": "EATS"}]})");
-}
-
 TEST(NamesJsonTest, SuggestsNamesThatStartWithWhatsTyped) {
   Graph graph;
   graph.AddNode("Red fox");
@@ -34,28 +23,6 @@ TEST(NamesJsonTest, SuggestsNamesThatStartWithWhatsTyped) {
   graph.AddNode("Clover");
   EXPECT_EQ(NamesJson(graph, "R"), R"({"names": ["Rabbit", "Red fox"]})");
   EXPECT_EQ(NamesJson(graph, "Bad"), R"({"names": []})");
-}
-
-TEST(WalkJsonTest, ListsTheNodesEachHopReaches) {
-  Graph graph;
-  NodeId fox = graph.AddNode("Red fox");
-  NodeId rabbit = graph.AddNode("Rabbit");
-  graph.AddRelationship(fox, "EATS", rabbit);
-  graph.AddRelationship(rabbit, "EATS", graph.AddNode("Clover"));
-  absl::StatusOr<std::string> json = WalkJson(graph, "Red fox", "EATS", "2");
-  ASSERT_TRUE(json.ok()) << json.status();
-  EXPECT_EQ(*json, R"({"hops": [[0], [1], [2]]})");
-}
-
-TEST(WalkJsonTest, SaysWhatsWrongWithARequest) {
-  Graph graph;
-  graph.AddNode("Red fox");
-  EXPECT_TRUE(
-      absl::IsNotFound(WalkJson(graph, "Badger", "EATS", "2").status()));
-  EXPECT_TRUE(absl::IsInvalidArgument(
-      WalkJson(graph, "Red fox", "EATS", "two").status()));
-  EXPECT_TRUE(absl::IsInvalidArgument(
-      WalkJson(graph, "Red fox", "EATS", "11").status()));
 }
 
 TEST(NodeJsonTest, ShowsWhereARecordAndItsChainsAreKept) {
@@ -74,16 +41,18 @@ TEST(NodeJsonTest, ShowsWhereARecordAndItsChainsAreKept) {
   // numbers, and the first property's, 1, as the relationship's source is
   // property 0.
   EXPECT_EQ(*json,
-            R"({"id": 0, "name": "Red fox", "page": 1, "offset": 0, )"
+            R"({"id": 0, "name": "Red fox", "label": "Animal", "page": 1, )"
+            R"("offset": 0, )"
             R"("bytes": "52 65 64 20 66 6f 78 00 00 00 00 00 00 00 00 00)"
             R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)"
             R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 41 6e 69 6d)"
             R"(\u000a61 6c 00 00 00 00 00 00 01 00 00 00 01 00 00 00", )"
             R"("chain": [{"id": 1, "type": "LIVES_IN", "properties": {}, )"
-            R"("to": 2, "to_name": "Forest", "page": 1, "offset": 32}, )"
+            R"("to": 2, "to_name": "Forest", "to_label": "", "page": 1, )"
+            R"("offset": 32}, )"
             R"({"id": 0, "type": "EATS", "properties": )"
             R"({"source": "Wikipedia"}, "to": 1, "to_name": "Rabbit", )"
-            R"("page": 1, "offset": 0}], )"
+            R"("to_label": "", "page": 1, "offset": 0}], )"
             R"("properties": [{"id": 1, "key": "legs", "value": 4, )"
             R"("page": 1, "offset": 64}]})");
 }
@@ -95,20 +64,35 @@ TEST(NodeJsonTest, RefusesANodeTheGraphDoesNotHave) {
   EXPECT_TRUE(absl::IsNotFound(NodeJson(graph, "fox").status()));
 }
 
+// A query's JSON without the time it took, which changes from run to run.
+std::string WithoutTime(const std::string& json) {
+  return json.substr(json.find("\"pages\""));
+}
+
 TEST(QueryJsonTest, AnswersWithRowsOrAPlan) {
   Graph graph;
   NodeId fox = graph.AddNode("Red fox");
   NodeId rabbit = graph.AddNode("Rabbit");
   graph.AddRelationship(fox, "EATS", rabbit);
+  graph.AddRelationship(fox, "LIVES_IN", graph.AddNode("Forest"));
   graph.SetProperty(rabbit, "legs", int64_t{4});
+  graph.SetLabel(rabbit, "Animal");
   absl::StatusOr<std::string> rows = QueryJson(
       graph,
       "MATCH (a {name: 'Red fox'})-[:EATS]->(b) RETURN b.name, b.legs, a.legs");
   ASSERT_TRUE(rows.ok()) << rows.status();
-  // The fox has no legs property here, so a.legs is null.
-  EXPECT_EQ(*rows, R"({"columns": ["b.name", "b.legs", "a.legs"], "rows": )"
-                   R"([[{"id": 1, "value": "Rabbit"}, {"id": 1, "value": 4}, )"
-                   R"({"id": 0, "value": null}]]})");
+  // The fox has no legs property here, so a.legs is null. The page draws the
+  // fox and the rabbit, and the relationship between them, but not the forest,
+  // which no row returns.
+  EXPECT_EQ(WithoutTime(*rows),
+            R"("pages": 0, "count": 1, )"
+            R"("columns": ["b.name", "b.legs", "a.legs"], "rows": )"
+            R"([[{"id": 1, "value": "Rabbit"}, {"id": 1, "value": 4}, )"
+            R"({"id": 0, "value": null}]], )"
+            R"("nodes": [{"id": 1, "name": "Rabbit", "label": "Animal"}, )"
+            R"({"id": 0, "name": "Red fox", "label": ""}], )"
+            R"("relationships": [{"id": 0, "from": 0, "to": 1, )"
+            R"("type": "EATS"}]})");
   absl::StatusOr<std::string> plan =
       QueryJson(graph, "EXPLAIN MATCH (a) RETURN a.name");
   ASSERT_TRUE(plan.ok()) << plan.status();

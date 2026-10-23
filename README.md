@@ -43,16 +43,18 @@ python3 tools/wikidata.py data/wikidata.txt
 
 ## The UI
 
-`sg serve` serves a graph over HTTP, with a page that draws it with [D3](https://d3js.org), lights
-up a walk a hop at a time, runs Cypher queries, and shows a node's record as it's kept on disk when
-it's clicked, with its chains of properties and relationships:
+`sg serve` serves a graph over HTTP, with a page that runs Cypher queries and draws what they
+return on a canvas, laid out by [D3](https://d3js.org)'s force simulation, up to 500 nodes at a
+time, with the rows in a table, the plan, and what the query cost on the server. A search finds a
+node by its name, clicking a node shows its record as it's kept on disk, with its chains of
+properties and relationships, and double-clicking it draws the nodes its relationships go to:
 
 ```bash
-./build/sg serve animals.sg 8474
+./build/sg serve wikidata.sg 8474
 ```
 
-Then open http://localhost:8474. Or, with Docker, `docker compose up` loads the animals and serves
-them there.
+Then open http://localhost:8474. Or, with Docker, `docker compose up` loads the mammals and birds
+and serves them there.
 
 ## Deploying
 

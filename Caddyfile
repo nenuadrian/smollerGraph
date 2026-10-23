@@ -2,6 +2,8 @@
 # and passes the API's requests on to sg serve, which nothing else can reach.
 :8474 {
 	root * /srv
+	# The browser asks whether a file has changed before it uses its copy.
+	header Cache-Control no-cache
 	file_server
 	reverse_proxy /api/* sg:8474
 }

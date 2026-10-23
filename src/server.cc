@@ -38,29 +38,20 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
     httplib::set_socket_opt(fd, SOL_SOCKET, SO_REUSEADDR, 1);
   });
   // The UI's files are served from the source tree, so changing one needs a
-  // reload in the browser, not a new build.
-  if (!server.set_mount_point("/", SMOLLERGRAPH_UI)) {
+  // reload in the browser, not a new build. No cache tells the browser to ask
+  // whether a file has changed before it uses its copy.
+  if (!server.set_mount_point("/", SMOLLERGRAPH_UI,
+                              {{"Cache-Control", "no-cache"}})) {
     return absl::NotFoundError(
         absl::StrCat("there's no folder ", SMOLLERGRAPH_UI));
   }
   // The server answers requests on several threads at once. Nothing writes to
   // the graph while it's served, and the buffer pools' latches keep their
   // reads from getting in each other's way.
-  server.Get("/api/graph",
-             [&graph](const httplib::Request&, httplib::Response& response) {
-               response.set_content(GraphJson(graph), "application/json");
-             });
   server.Get("/api/names", [&graph](const httplib::Request& request,
                                     httplib::Response& response) {
     response.set_content(NamesJson(graph, request.get_param_value("prefix")),
                          "application/json");
-  });
-  server.Get("/api/walk", [&graph](const httplib::Request& request,
-                                   httplib::Response& response) {
-    Send(WalkJson(graph, request.get_param_value("from"),
-                  request.get_param_value("type"),
-                  request.get_param_value("hops")),
-         response);
   });
   server.Get("/api/query", [&graph](const httplib::Request& request,
                                     httplib::Response& response) {

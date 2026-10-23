@@ -1,0 +1,310 @@
+/* The colours of the series: a green-black field, chartreuse nodes and coral
+   relationships. */
+:root {
+  --field: #0a0f0e;
+  --panel: #111a17;
+  --raised: #17231f;
+  --line: #22322d;
+  --text: #dfe9e4;
+  --muted: #7e978d;
+  --node: #c8f169;
+  --relationship: #ff8c6b;
+}
+
+/* A header across the top, the queries on the left, the answer in the middle
+   and the inspector on the right, when a node is picked. */
+body {
+  margin: 0;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
+  background: var(--field);
+  color: var(--text);
+  font: 14px/1.5 "JetBrains Mono", monospace;
+  /* The font draws -> as an arrow, which isn't what's typed. */
+  font-variant-ligatures: none;
+}
+
+header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--node);
+}
+
+h2,
+h3 {
+  margin: 20px 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+input,
+textarea,
+button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--field);
+  color: var(--text);
+  font: inherit;
+}
+
+input,
+textarea {
+  padding: 8px 10px;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--node);
+}
+
+button {
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--node);
+}
+
+/* The search, with its suggestions in a list that opens under it. */
+#search {
+  position: relative;
+}
+
+#search input {
+  width: 36ch;
+}
+
+#search ul {
+  position: absolute;
+  z-index: 1;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  border-radius: 6px;
+  background: var(--raised);
+}
+
+#search li {
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+#search li:hover {
+  color: var(--node);
+}
+
+#queries {
+  padding: 16px 20px;
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+}
+
+#query {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+#query textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 9em;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+#query button {
+  border-color: var(--node);
+  color: var(--node);
+}
+
+#history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#history li {
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#history li:hover {
+  background: var(--raised);
+  color: var(--text);
+}
+
+main {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-width: 0;
+}
+
+#tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+#tabs button {
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: none;
+  color: var(--muted);
+}
+
+#tabs button.active {
+  border-bottom-color: var(--node);
+  color: var(--text);
+}
+
+.tab {
+  display: none;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tab.active {
+  display: block;
+}
+
+#graph {
+  position: relative;
+  overflow: hidden;
+}
+
+#graph canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+}
+
+/* The labels drawn, each with its colour, over the graph's corner. */
+.legend {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.legend li::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--colour);
+}
+
+#table table {
+  border-collapse: collapse;
+  margin: 12px 16px;
+}
+
+#table th,
+#table td {
+  padding: 6px 28px 6px 0;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+#table th {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+#plan pre {
+  margin: 16px;
+  font: inherit;
+  line-height: 1.8;
+}
+
+#status {
+  margin: 0;
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+#status.error {
+  color: var(--relationship);
+}
+
+#inspector {
+  display: none;
+  width: 420px;
+  padding: 16px 22px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  overflow-y: auto;
+}
+
+#inspector.open {
+  display: block;
+}
+
+#inspector h2 {
+  margin-top: 0;
+  color: var(--node);
+  font-size: 18px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+#inspector .expand {
+  margin-bottom: 4px;
+}
+
+#inspector .where {
+  color: var(--muted);
+}
+
+#inspector .bytes {
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+#inspector ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#inspector li {
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  white-space: pre-line;
+}
