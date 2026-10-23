@@ -61,6 +61,21 @@ TEST(GraphTest, KeepsPropertiesInAChain) {
             Value(std::string("Wikipedia")));
 }
 
+TEST(GraphTest, KeepsLongNamesAndALabel) {
+  Graph graph;
+  // The longest English name of a mammal on Wikidata, 42 bytes, and its
+  // scientific name, 17: neither fitted last time.
+  std::string name = "Ankarana Special Reserve tufted-tailed rat";
+  NodeId rat = graph.AddNode(name);
+  graph.SetLabel(rat, "Species");
+  graph.SetProperty(rat, "taxon", std::string("Eliurus carletoni"));
+  EXPECT_EQ(graph.Find(name), rat);
+  EXPECT_EQ(graph.name(rat), name);
+  EXPECT_EQ(graph.label(rat), "Species");
+  EXPECT_EQ(graph.FindProperty(rat, "taxon"),
+            Value(std::string("Eliurus carletoni")));
+}
+
 TEST(GraphTest, KeepsItsRecordsInAFolder) {
   // A new folder, with a name of its own, so nothing is left in it from an
   // earlier run.

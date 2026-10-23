@@ -24,10 +24,12 @@ using PropertyId = uint32_t;
 inline constexpr RelationshipId kNoRelationship = UINT32_MAX;
 inline constexpr PropertyId kNoProperty = UINT32_MAX;
 
-// A node on disk: its name, the first of the relationships that start at it,
-// and the first of its properties.
+// A node on disk: its name, its label, which says what kind of node it is,
+// the first of the relationships that start at it, and the first of its
+// properties.
 struct NodeRecord {
-  char name[24];
+  char name[44];
+  char label[12];
   RelationshipId first_out;
   PropertyId first_property;
 };
@@ -49,15 +51,17 @@ enum class ValueType : uint8_t { kInteger, kString };
 // relationship it belongs to, so their properties form a chain too. A whole
 // number takes the first 8 bytes of the value, and a string runs to its zero.
 struct PropertyRecord {
-  char key[12];
+  char key[16];
   ValueType type;
-  char value[15];
+  char value[43];
   PropertyId next;
 };
 
-static_assert(sizeof(NodeRecord) == 32);
+// A node and a property take 64 bytes, room for the names and values of a real
+// graph, and a relationship still takes 32.
+static_assert(sizeof(NodeRecord) == 64);
 static_assert(sizeof(RelationshipRecord) == 32);
-static_assert(sizeof(PropertyRecord) == 32);
+static_assert(sizeof(PropertyRecord) == 64);
 
 // A property's value, as the graph hands it out: a whole number or a string.
 using Value = std::variant<int64_t, std::string>;
@@ -75,8 +79,9 @@ Value ValueOf(const PropertyRecord& record);
 // by its name.
 class Graph {
  public:
-  // The longest name and relationship type that fit in their records.
+  // The longest name, label and relationship type that fit in their records.
   static constexpr size_t kMaxName = sizeof(NodeRecord::name) - 1;
+  static constexpr size_t kMaxLabel = sizeof(NodeRecord::label) - 1;
   static constexpr size_t kMaxType = sizeof(RelationshipRecord::type) - 1;
   // The longest key and string that fit in a property's record.
   static constexpr size_t kMaxKey = sizeof(PropertyRecord::key) - 1;
@@ -99,6 +104,9 @@ class Graph {
   // be at most kMaxName bytes long.
   NodeId AddNode(std::string_view name);
   RelationshipId AddRelationship(NodeId from, std::string_view type, NodeId to);
+  // Gives a node its label, such as Species, in place of the one it had. The
+  // label has to be at most kMaxLabel bytes long.
+  void SetLabel(NodeId node, std::string_view label);
 
   // Sets a property of a node or a relationship, replacing the value it had.
   // The key has to be at most kMaxKey bytes long, and a string kMaxString. A
@@ -128,6 +136,7 @@ class Graph {
   std::vector<NodeId> Neighbours(NodeId node, std::string_view type) const;
 
   std::string name(NodeId node) const { return nodes_.Read(node).name; }
+  std::string label(NodeId node) const { return nodes_.Read(node).label; }
   NodeRecord node(NodeId id) const { return nodes_.Read(id); }
   RelationshipRecord relationship(RelationshipId id) const {
     return relationships_.Read(id);

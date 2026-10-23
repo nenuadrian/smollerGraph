@@ -77,6 +77,7 @@ NodeId Graph::AddNode(std::string_view name) {
   if (std::optional<NodeId> found = Find(name)) return *found;
   NodeRecord record;
   CopyField(record.name, name);
+  CopyField(record.label, "");
   record.first_out = kNoRelationship;
   record.first_property = kNoProperty;
   NodeId id = nodes_.Append(record);
@@ -98,6 +99,12 @@ RelationshipId Graph::AddRelationship(NodeId from, std::string_view type,
   node.first_out = relationships_.Append(record);
   nodes_.Write(from, node);
   return node.first_out;
+}
+
+void Graph::SetLabel(NodeId node, std::string_view label) {
+  NodeRecord record = nodes_.Read(node);
+  CopyField(record.label, label);
+  nodes_.Write(node, record);
 }
 
 void Graph::SetProperty(NodeId node, std::string_view key, const Value& value) {

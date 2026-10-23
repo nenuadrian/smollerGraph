@@ -19,8 +19,8 @@ namespace smollergraph {
 // holds which names. Finding a name reads a page on each level.
 class NameIndex {
  public:
-  // The longest name it keeps, which is longer than a node's.
-  static constexpr size_t kMaxName = 27;
+  // The longest name it keeps, as long as a node's.
+  static constexpr size_t kMaxName = 43;
 
   // Opens the index in the file at `path`, creating it when it isn't there.
   absl::Status Open(const std::string& path);

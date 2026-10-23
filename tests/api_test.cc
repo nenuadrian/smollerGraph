@@ -66,22 +66,26 @@ TEST(NodeJsonTest, ShowsWhereARecordAndItsChainsAreKept) {
   graph.SetRelationshipProperty(eats, "source", std::string("Wikipedia"));
   graph.AddRelationship(fox, "LIVES_IN", graph.AddNode("Forest"));
   graph.SetProperty(fox, "legs", int64_t{4});
+  graph.SetLabel(fox, "Animal");
   absl::StatusOr<std::string> json = NodeJson(graph, "0");
   ASSERT_TRUE(json.ok()) << json.status();
-  // The name, padded with zeros, then the first relationship's id, 1, with its
-  // lowest byte first, as x86 and ARM keep numbers, and the first property's,
-  // 1, as the relationship's source is property 0.
+  // The name and the label, each padded with zeros, then the first
+  // relationship's id, 1, with its lowest byte first, as x86 and ARM keep
+  // numbers, and the first property's, 1, as the relationship's source is
+  // property 0.
   EXPECT_EQ(*json,
             R"({"id": 0, "name": "Red fox", "page": 1, "offset": 0, )"
             R"("bytes": "52 65 64 20 66 6f 78 00 00 00 00 00 00 00 00 00)"
-            R"(\u000a00 00 00 00 00 00 00 00 01 00 00 00 01 00 00 00", )"
+            R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)"
+            R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 41 6e 69 6d)"
+            R"(\u000a61 6c 00 00 00 00 00 00 01 00 00 00 01 00 00 00", )"
             R"("chain": [{"id": 1, "type": "LIVES_IN", "properties": {}, )"
             R"("to": 2, "to_name": "Forest", "page": 1, "offset": 32}, )"
             R"({"id": 0, "type": "EATS", "properties": )"
             R"({"source": "Wikipedia"}, "to": 1, "to_name": "Rabbit", )"
             R"("page": 1, "offset": 0}], )"
             R"("properties": [{"id": 1, "key": "legs", "value": 4, )"
-            R"("page": 1, "offset": 32}]})");
+            R"("page": 1, "offset": 64}]})");
 }
 
 TEST(NodeJsonTest, RefusesANodeTheGraphDoesNotHave) {
