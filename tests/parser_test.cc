@@ -31,9 +31,10 @@ TEST(ParserTest, ReadsAPattern) {
 
 TEST(ParserTest, ReadsWhereAndProperties) {
   absl::StatusOr<Query> query = Parse(
-      "MATCH (a {legs: 2})-[:EATS]->(b) WHERE b.weight_g < 1000 AND "
+      "MATCH (a:Animal {legs: 2})-[:EATS]->(b) WHERE b.weight_g < 1000 AND "
       "b.diet <> 'herbivore' RETURN a.name, b.weight_g");
   ASSERT_TRUE(query.ok()) << query.status();
+  EXPECT_EQ(query->nodes[0].label, "Animal");
   EXPECT_EQ(query->nodes[0].properties[0].value, Value(int64_t{2}));
   ASSERT_EQ(query->where.size(), 2);
   EXPECT_EQ(query->where[0].property.key, "weight_g");

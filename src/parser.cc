@@ -88,11 +88,15 @@ class Parser {
   }
 
  private:
-  // node := ( [variable] [properties] )
+  // node := ( [variable] [: label] [properties] )
   bool ParseNode(NodePattern& node) {
     node = {};
     if (!ExpectSymbol("(")) return false;
     if (Peek().kind == TokenKind::kWord) node.variable = Next().text;
+    if (Symbol(":")) {
+      if (Peek().kind != TokenKind::kWord) return Fail("a label");
+      node.label = Next().text;
+    }
     if (IsSymbol("{") && !ParseProperties(node.properties)) return false;
     return ExpectSymbol(")");
   }

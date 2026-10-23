@@ -10,10 +10,12 @@
 
 namespace smollergraph {
 
-// A node in a pattern, such as (a {name: 'Red fox'}). Its variable and its
-// properties are both optional: () matches any node, and gives it no variable.
+// A node in a pattern, such as (a:Animal {name: 'Red fox'}). Its variable,
+// its label and its properties are all optional: () matches any node, and
+// gives it no variable.
 struct NodePattern {
   std::string variable;
+  std::string label;
   std::vector<Property> properties;
 };
 

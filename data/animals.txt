@@ -1,10 +1,17 @@
 # A small knowledge graph about animals: what they are, where they live and
-# what they eat. One fact a line, written as a Cypher pattern, with properties
-# in braces: a rough weight in grams, legs and diet.
-(Red fox {weight_g: 6000, legs: 4, diet: 'omnivore'})
-(Rabbit {weight_g: 2000, legs: 4, diet: 'herbivore'})
-(Field mouse {weight_g: 25, legs: 4, diet: 'omnivore'})
-(Tawny owl {weight_g: 500, legs: 2, diet: 'carnivore'})
+# what they eat. One fact a line, written as a Cypher pattern, with a label
+# after a colon, and properties in braces: a rough weight in grams, legs and
+# diet.
+(Red fox:Animal {weight_g: 6000, legs: 4, diet: 'omnivore'})
+(Rabbit:Animal {weight_g: 2000, legs: 4, diet: 'herbivore'})
+(Field mouse:Animal {weight_g: 25, legs: 4, diet: 'omnivore'})
+(Tawny owl:Animal {weight_g: 500, legs: 2, diet: 'carnivore'})
+(Clover:Plant)
+(Wheat:Plant)
+(Mammal:Class)
+(Bird:Class)
+(Forest:Habitat)
+(Meadow:Habitat)
 (Red fox)-[:IS_A]->(Mammal)
 (Rabbit)-[:IS_A]->(Mammal)
 (Field mouse)-[:IS_A]->(Mammal)

@@ -110,13 +110,14 @@ TEST(FactsTest, WalksTwoHopsDownTheFoodChain) {
             (std::vector<std::string>{"Clover", "Wheat"}));
 }
 
-TEST(FactsTest, ReadsPropertiesInBraces) {
+TEST(FactsTest, ReadsALabelAndPropertiesInBraces) {
   std::istringstream facts(
-      "(Red fox {legs: 4, diet: 'omnivore'})\n"
+      "(Red fox:Animal {legs: 4, diet: 'omnivore'})\n"
       "(Red fox)-[:EATS {source: 'Wikipedia'}]->(Rabbit {legs: 4})\n");
   Graph graph;
   ASSERT_EQ(LoadFacts(facts, graph), absl::OkStatus());
   NodeId fox = *graph.Find("Red fox");
+  EXPECT_EQ(graph.label(fox), "Animal");
   EXPECT_EQ(graph.FindProperty(fox, "diet"), Value(std::string("omnivore")));
   EXPECT_EQ(graph.FindProperty(*graph.Find("Rabbit"), "legs"),
             Value(int64_t{4}));

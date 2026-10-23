@@ -43,14 +43,20 @@ std::optional<std::string> NameOf(const NodePattern& node) {
   return std::nullopt;
 }
 
-// Adds the filters on a node of the pattern, once it has a slot: one for each
-// of its properties, and one for each comparison in WHERE on its variable.
-// They come as early as they can, so the rows they drop are expanded no
-// further. After a seek, the name has been found already.
+// Adds the filters on a node of the pattern, once the step `found` has put it
+// in a slot: one for its label, one for each of its properties, and one for
+// each comparison in WHERE on its variable. They come as early as they can, so
+// the rows they drop are expanded no further. A seek has found the name
+// already, and a label scan the label.
 void AddFilters(const Query& query, const NodePattern& node, int slot,
-                bool seek, Plan& plan) {
+                Step::Kind found, Plan& plan) {
+  if (!node.label.empty() && found != Step::Kind::kNodeByLabelScan) {
+    plan.steps.push_back({Step::Kind::kHasLabel, slot, -1, node.label});
+  }
   for (const Property& property : node.properties) {
-    if (seek && property.key == "name") continue;
+    if (found == Step::Kind::kNodeIndexSeek && property.key == "name") {
+      continue;
+    }
     plan.steps.push_back(
         {Step::Kind::kFilter, slot, -1, property.key, "=", property.value});
   }
@@ -111,17 +117,20 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
     }
   }
 
-  // A start with a name is found in the index. Without one, each node in the
-  // graph is a start.
+  // A start with a name is found in the index. Without one, a start with a
+  // label is found by its label, and without either, each node in the graph
+  // is a start.
   const NodePattern& start = query.nodes[0];
   plan.slots.push_back(start.variable);
   std::optional<std::string> name = NameOf(start);
   if (name) {
     plan.steps.push_back({Step::Kind::kNodeIndexSeek, -1, 0, *name});
+  } else if (!start.label.empty()) {
+    plan.steps.push_back({Step::Kind::kNodeByLabelScan, -1, 0, start.label});
   } else {
     plan.steps.push_back({Step::Kind::kAllNodesScan, -1, 0, ""});
   }
-  AddFilters(query, start, 0, name.has_value(), plan);
+  AddFilters(query, start, 0, plan.steps.back().kind, plan);
   for (size_t i = 0; i < query.relationships.size(); ++i) {
     const RelationshipPattern& relationship = query.relationships[i];
     const NodePattern& node = query.nodes[i + 1];
@@ -134,8 +143,8 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
       plan.steps.push_back(
           {Step::Kind::kExpand, from, from + 1, relationship.type});
     }
-    AddFilters(query, node, static_cast<int>(plan.slots.size()) - 1, false,
-               plan);
+    AddFilters(query, node, static_cast<int>(plan.slots.size()) - 1,
+               Step::Kind::kExpand, plan);
   }
 
   plan.distinct = query.distinct;
@@ -173,6 +182,13 @@ Result Run(const Plan& plan, const Graph& graph) {
             next.back()[step.to] = node;
           }
           break;
+        case Step::Kind::kNodeByLabelScan:
+          for (NodeId node = 0; node < graph.node_count(); ++node) {
+            if (graph.label(node) != step.text) continue;
+            next.push_back(row);
+            next.back()[step.to] = node;
+          }
+          break;
         case Step::Kind::kExpand:
           for (NodeId node : graph.Neighbours(row[step.from], step.text)) {
             next.push_back(row);
@@ -184,6 +200,9 @@ Result Run(const Plan& plan, const Graph& graph) {
                       step.value)) {
             next.push_back(row);
           }
+          break;
+        case Step::Kind::kHasLabel:
+          if (graph.label(row[step.from]) == step.text) next.push_back(row);
           break;
       }
     }
@@ -220,6 +239,10 @@ std::string Explain(const Plan& plan) {
         absl::StrAppend(&text, "AllNodesScan (", SlotName(plan, step.to),
                         ")\n");
         break;
+      case Step::Kind::kNodeByLabelScan:
+        absl::StrAppend(&text, "NodeByLabelScan (", SlotName(plan, step.to),
+                        ":", step.text, ")\n");
+        break;
       case Step::Kind::kExpand:
         absl::StrAppend(&text, "Expand (", SlotName(plan, step.from),
                         ")-[:", step.text, "]->(", SlotName(plan, step.to),
@@ -229,6 +252,10 @@ std::string Explain(const Plan& plan) {
         absl::StrAppend(&text, "Filter ", SlotName(plan, step.from), ".",
                         step.text, " ", step.op, " ", Literal(step.value),
                         "\n");
+        break;
+      case Step::Kind::kHasLabel:
+        absl::StrAppend(&text, "Filter ", SlotName(plan, step.from), ":",
+                        step.text, "\n");
         break;
     }
   }

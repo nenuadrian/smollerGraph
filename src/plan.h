@@ -20,12 +20,17 @@ struct Step {
     kNodeIndexSeek,
     // A row for each node in the graph, in slot `to`.
     kAllNodesScan,
+    // A row for each node with the label `text`, in slot `to`. With no index
+    // on labels, it reads each node's record to find them.
+    kNodeByLabelScan,
     // For each row, a row for each node that a relationship of type `text`
     // goes to from the node in slot `from`, in slot `to`.
     kExpand,
     // The rows whose node in slot `from` has a property `text` that compares
     // with `value` as `op` says.
     kFilter,
+    // The rows whose node in slot `from` has the label `text`.
+    kHasLabel,
   };
   Kind kind;
   int from = -1;

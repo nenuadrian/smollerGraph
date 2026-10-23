@@ -6,9 +6,9 @@ in this repository, so you can check out the code at any point in a video.
 
 It keeps a graph in a folder of fixed-size records, in pages of 4 KiB that a buffer pool keeps in
 memory, with a B+ tree that finds a node by its name, and each node's and relationship's properties
-in a chain of records of their own: it loads facts written as Cypher patterns, one a line, with
-properties in braces, such as `(Rabbit {legs: 4})`, walks relationships of one type from a node, and
-draws the graph in a browser.
+in a chain of records of their own: it loads facts written as Cypher patterns, one a line, with a
+label after a colon and properties in braces, such as `(Rabbit:Animal {legs: 4})`, walks
+relationships of one type from a node, and draws the graph in a browser.
 
 ## Building and running
 
@@ -22,8 +22,8 @@ cmake --build build
 ./build/sg query animals.sg "MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) RETURN c.name"
 ```
 
-`sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with
-properties to match in braces, joined by relationships of one type that go right, for one hop or
+`sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a
+label and properties to match, joined by relationships of one type that go right, for one hop or
 `*N`, then an optional `WHERE` of comparisons joined by `AND`, such as `b.weight_g < 1000`, and
 `RETURN [DISTINCT]` properties of its variables. `EXPLAIN` in front shows the plan.
 

@@ -52,6 +52,19 @@ TEST(PlanTest, FiltersANodeAsSoonAsItHasASlot) {
             "Return b.name\n");
 }
 
+TEST(PlanTest, ScansALabelOrFiltersOnIt) {
+  EXPECT_EQ(Explained("MATCH (a:Animal)-[:EATS]->(b:Plant) RETURN a.name"),
+            "NodeByLabelScan (a:Animal)\n"
+            "Expand (a)-[:EATS]->(b)\n"
+            "Filter b:Plant\n"
+            "Return a.name\n");
+  // The index finds a name more quickly than a scan finds a label.
+  EXPECT_EQ(Explained("MATCH (a:Animal {name: 'Red fox'}) RETURN a.name"),
+            "NodeIndexSeek (a {name: 'Red fox'})\n"
+            "Filter a:Animal\n"
+            "Return a.name\n");
+}
+
 TEST(PlanTest, RefusesVariablesItCannotPlan) {
   EXPECT_EQ(Explained("MATCH (a) RETURN b.name"),
             "there's no variable called b");
@@ -83,10 +96,12 @@ class RunTest : public ::testing::Test {
  protected:
   void SetUp() override {
     std::istringstream facts(
-        "(Red fox {weight_g: 6000, diet: 'omnivore'})\n"
-        "(Rabbit {weight_g: 2000, diet: 'herbivore'})\n"
-        "(Field mouse {weight_g: 25, diet: 'omnivore'})\n"
-        "(Tawny owl {weight_g: 500, diet: 'carnivore'})\n"
+        "(Red fox:Animal {weight_g: 6000, diet: 'omnivore'})\n"
+        "(Rabbit:Animal {weight_g: 2000, diet: 'herbivore'})\n"
+        "(Field mouse:Animal {weight_g: 25, diet: 'omnivore'})\n"
+        "(Tawny owl:Animal {weight_g: 500, diet: 'carnivore'})\n"
+        "(Clover:Plant)\n"
+        "(Wheat:Plant)\n"
         "(Red fox)-[:EATS]->(Rabbit)\n"
         "(Red fox)-[:EATS]->(Field mouse)\n"
         "(Tawny owl)-[:EATS]->(Field mouse)\n"
@@ -124,6 +139,13 @@ TEST_F(RunTest, ReturnsDistinctRows) {
   // DISTINCT compares values: the fox and the field mouse are both omnivores.
   EXPECT_EQ(Answers(graph_, "MATCH (a)-[:EATS]->(b) RETURN DISTINCT a.diet"),
             (std::vector<std::string>{"omnivore", "herbivore", "carnivore"}));
+}
+
+TEST_F(RunTest, MatchesLabels) {
+  EXPECT_EQ(
+      Answers(graph_,
+              "MATCH (a:Animal)-[:EATS]->(b:Plant) RETURN a.name, b.name"),
+      (std::vector<std::string>{"Rabbit, Clover", "Field mouse, Wheat"}));
 }
 
 TEST_F(RunTest, FiltersAndReturnsProperties) {

@@ -11,24 +11,32 @@
 namespace smollergraph {
 namespace {
 
-// A node or a relationship type in a fact, and the properties in braces after
-// it, as in "Red fox {legs: 4}".
+// A node or a relationship type in a fact, with a node's label after a colon,
+// and the properties in braces after that, as in "Red fox:Animal {legs: 4}".
 struct Part {
   std::string_view text;
+  std::string_view label;
   std::vector<Property> properties;
 };
 
 // Reads a part of a fact, and returns false when it can't. Its braces are
 // written as in Cypher, so our parser reads them. The text has to be at most
-// `max` bytes, without brackets, and the keys and strings have to fit in
-// property records.
+// `max` bytes, without brackets, a label has to fit in a node's record, and
+// the keys and strings in property records.
 bool ReadPart(std::string_view text, size_t max, Part& part) {
-  part = {text, {}};
+  part = {text, {}, {}};
   if (size_t open = text.find(" {"); open != std::string_view::npos) {
     absl::StatusOr<std::vector<Property>> properties =
         ParseProperties(text.substr(open + 1));
     if (!properties.ok()) return false;
-    part = {text.substr(0, open), *std::move(properties)};
+    part = {text.substr(0, open), {}, *std::move(properties)};
+  }
+  if (size_t colon = part.text.find(':'); colon != std::string_view::npos) {
+    part.label = part.text.substr(colon + 1);
+    part.text = part.text.substr(0, colon);
+    if (part.label.empty() || part.label.size() > Graph::kMaxLabel) {
+      return false;
+    }
   }
   if (part.text.empty() || part.text.size() > max ||
       part.text.find_first_of("()[]{}") != std::string_view::npos) {
@@ -47,6 +55,7 @@ bool ReadPart(std::string_view text, size_t max, Part& part) {
 
 NodeId AddWithProperties(Graph& graph, const Part& part) {
   NodeId node = graph.AddNode(part.text);
+  if (!part.label.empty()) graph.SetLabel(node, part.label);
   for (const Property& property : part.properties) {
     graph.SetProperty(node, property.key, property.value);
   }
