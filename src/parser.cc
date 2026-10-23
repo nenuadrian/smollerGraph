@@ -3,6 +3,7 @@
 #include <cctype>
 #include <charconv>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <utility>
 #include <vector>
@@ -65,6 +66,15 @@ class Parser {
     return true;
   }
 
+  // Properties on their own, as the facts we load have them.
+  bool ParsePropertiesAlone(std::vector<Property>& properties) {
+    if (!ParseProperties(properties)) return false;
+    if (Peek().kind != TokenKind::kEnd) {
+      return Fail("the end of the properties");
+    }
+    return true;
+  }
+
  private:
   // node := ( [variable] [{ name : string }] )
   bool ParseNode(NodePattern& node) {
@@ -98,6 +108,37 @@ class Parser {
       Next();
     }
     return ExpectSymbol("]") && ExpectSymbol("-") && ExpectSymbol(">");
+  }
+
+  // properties := { key : value (, key : value)* }
+  bool ParseProperties(std::vector<Property>& properties) {
+    if (!ExpectSymbol("{")) return false;
+    do {
+      Property property;
+      if (Peek().kind != TokenKind::kWord) return Fail("a key");
+      property.key = Next().text;
+      if (!ExpectSymbol(":") || !ParseValue(property.value)) return false;
+      properties.push_back(std::move(property));
+    } while (Symbol(","));
+    return ExpectSymbol("}");
+  }
+
+  // value := string | number
+  bool ParseValue(Value& value) {
+    if (Peek().kind == TokenKind::kString) {
+      value = Next().text;
+      return true;
+    }
+    const std::string& text = Peek().text;
+    int64_t number = 0;
+    auto [end, failed] =
+        std::from_chars(text.data(), text.data() + text.size(), number);
+    if (Peek().kind != TokenKind::kNumber || failed != std::errc()) {
+      return Fail("a string or a whole number");
+    }
+    Next();
+    value = number;
+    return true;
   }
 
   // item := variable . name
@@ -167,6 +208,15 @@ absl::StatusOr<Query> Parse(std::string_view text) {
   Query query;
   if (!parser.ParseQuery(query)) return parser.status();
   return query;
+}
+
+absl::StatusOr<std::vector<Property>> ParseProperties(std::string_view text) {
+  absl::StatusOr<std::vector<Token>> tokens = Lex(text);
+  if (!tokens.ok()) return tokens.status();
+  Parser parser(*std::move(tokens));
+  std::vector<Property> properties;
+  if (!parser.ParsePropertiesAlone(properties)) return parser.status();
+  return properties;
 }
 
 }  // namespace smollergraph

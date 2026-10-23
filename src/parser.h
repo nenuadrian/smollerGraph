@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "absl/status/statusor.h"
+#include "graph.h"
 
 namespace smollergraph {
 
@@ -40,6 +41,10 @@ struct Query {
 // Reads a query. Returns an error that says what's wrong and where, when it
 // isn't one our subset has.
 absl::StatusOr<Query> Parse(std::string_view text);
+
+// Reads properties as Cypher writes them, in braces, such as
+// {legs: 4, diet: 'omnivore'}, with a string or a whole number for each key.
+absl::StatusOr<std::vector<Property>> ParseProperties(std::string_view text);
 
 }  // namespace smollergraph
 

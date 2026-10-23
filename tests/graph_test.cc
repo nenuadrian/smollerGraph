@@ -95,12 +95,32 @@ TEST(FactsTest, WalksTwoHopsDownTheFoodChain) {
             (std::vector<std::string>{"Clover", "Wheat"}));
 }
 
-TEST(FactsTest, StopsAtALineThatIsNotAFact) {
-  std::istringstream facts("(Red fox) EATS (Rabbit)\n");
+TEST(FactsTest, ReadsPropertiesInBraces) {
+  std::istringstream facts(
+      "(Red fox {legs: 4, diet: 'omnivore'})\n"
+      "(Red fox)-[:EATS {source: 'Wikipedia'}]->(Rabbit {legs: 4})\n");
   Graph graph;
-  absl::Status status = LoadFacts(facts, graph);
-  EXPECT_TRUE(absl::IsInvalidArgument(status));
-  EXPECT_EQ(status.message(), "(Red fox) EATS (Rabbit)");
+  ASSERT_EQ(LoadFacts(facts, graph), absl::OkStatus());
+  NodeId fox = *graph.Find("Red fox");
+  EXPECT_EQ(graph.FindProperty(fox, "diet"), Value(std::string("omnivore")));
+  EXPECT_EQ(graph.FindProperty(*graph.Find("Rabbit"), "legs"),
+            Value(int64_t{4}));
+  ASSERT_EQ(graph.RelationshipProperties(0).size(), 1);
+  EXPECT_EQ(graph.RelationshipProperties(0)[0].value,
+            Value(std::string("Wikipedia")));
+}
+
+TEST(FactsTest, StopsAtALineThatIsNotAFact) {
+  // Not a pattern, a value that isn't a string or a number, and a name set
+  // as a property.
+  for (std::string line : {"(Red fox) EATS (Rabbit)", "(Red fox {legs: four})",
+                           "(Red fox {name: 'Fox'})"}) {
+    std::istringstream facts(line + "\n");
+    Graph graph;
+    absl::Status status = LoadFacts(facts, graph);
+    EXPECT_TRUE(absl::IsInvalidArgument(status));
+    EXPECT_EQ(status.message(), line);
+  }
 }
 
 }  // namespace

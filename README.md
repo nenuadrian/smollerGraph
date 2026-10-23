@@ -5,8 +5,10 @@ A small graph database, built from scratch in C++ on the YouTube series
 in this repository, so you can check out the code at any point in a video.
 
 It keeps a graph in a folder of fixed-size records, in pages of 4 KiB that a buffer pool keeps in
-memory, with a B+ tree that finds a node by its name: it loads facts written as Cypher patterns, one
-a line, walks relationships of one type from a node, and draws the graph in a browser.
+memory, with a B+ tree that finds a node by its name, and each node's and relationship's properties
+in a chain of records of their own: it loads facts written as Cypher patterns, one a line, with
+properties in braces, such as `(Rabbit {legs: 4})`, walks relationships of one type from a node, and
+draws the graph in a browser.
 
 ## Building and running
 
