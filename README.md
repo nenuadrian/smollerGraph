@@ -51,8 +51,9 @@ python3 tools/wikidata.py data/wikidata.txt
 `sg serve` serves a graph over HTTP, with a page that runs Cypher queries and draws what they
 return on a canvas, laid out by [D3](https://d3js.org)'s force simulation, up to 500 nodes at a
 time, with the rows in a table, the plan, and what the query cost on the server. A search finds a
-node by its name, clicking a node shows its record as it's kept on disk, with its chains of
-properties and relationships, and double-clicking it draws the nodes its relationships go to:
+node by its name, clicking a node shows its record as it's kept on disk, with its chain of
+properties and its chains of relationships out and in, and double-clicking it draws the nodes at
+the other end of both:
 
 ```bash
 ./build/sg serve wikidata.sg 8474

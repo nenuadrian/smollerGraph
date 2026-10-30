@@ -57,6 +57,30 @@ std::string PropertiesJson(const std::vector<Property>& properties) {
   return json + "}";
 }
 
+// A chain of relationships as JSON, from its first to its last, which is the
+// order they're kept in: newest first. Each has its type, its properties, the
+// node at its other end and where it's kept. The chain out goes on to each
+// relationship's next out, and the chain in to its next in.
+std::string ChainJson(const Graph& graph, RelationshipId first,
+                      Direction direction) {
+  bool out = direction == Direction::kOut;
+  std::string json = "[";
+  RelationshipId id = first;
+  while (id != kNoRelationship) {
+    RelationshipRecord relationship = graph.relationship(id);
+    NodeId other = out ? relationship.to : relationship.from;
+    absl::StrAppend(
+        &json, id != first ? ", " : "", "{\"id\": ", id,
+        ", \"type\": ", JsonString(graph.type(id)),
+        ", \"properties\": ", PropertiesJson(graph.RelationshipProperties(id)),
+        ", \"node\": ", other, ", \"name\": ", JsonString(graph.name(other)),
+        ", \"label\": ", JsonString(graph.label(other)),
+        Where<RelationshipRecord>(id), "}");
+    id = out ? relationship.next_out : relationship.next_in;
+  }
+  return json + "]";
+}
+
 // A record's bytes in hex, sixteen a line, as xxd shows them.
 template <typename Record>
 std::string Hex(const Record& record) {
@@ -108,31 +132,15 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
     return absl::NotFoundError(absl::StrCat("there's no node ", id));
   }
   NodeRecord node = graph.node(*node_id);
-  std::string json =
-      absl::StrCat("{\"id\": ", *node_id, ", \"name\": ", JsonString(node.name),
-                   ", \"label\": ", JsonString(graph.label(*node_id)),
-                   Where<NodeRecord>(*node_id),
-                   ", \"bytes\": ", JsonString(Hex(node)), ", \"chain\": [");
-  // The chain from the node's first relationship to its last, which is the
-  // order they're kept in: newest first.
-  RelationshipId relationship_id = node.first_out;
-  while (relationship_id != kNoRelationship) {
-    RelationshipRecord relationship = graph.relationship(relationship_id);
-    if (relationship_id != node.first_out) json += ", ";
-    absl::StrAppend(
-        &json, "{\"id\": ", relationship_id,
-        ", \"type\": ", JsonString(graph.type(relationship_id)),
-        ", \"properties\": ",
-        PropertiesJson(graph.RelationshipProperties(relationship_id)),
-        ", \"to\": ", relationship.to,
-        ", \"to_name\": ", JsonString(graph.name(relationship.to)),
-        ", \"to_label\": ", JsonString(graph.label(relationship.to)),
-        Where<RelationshipRecord>(relationship_id), "}");
-    relationship_id = relationship.next_out;
-  }
+  std::string json = absl::StrCat(
+      "{\"id\": ", *node_id, ", \"name\": ", JsonString(node.name),
+      ", \"label\": ", JsonString(graph.label(*node_id)),
+      Where<NodeRecord>(*node_id), ", \"bytes\": ", JsonString(Hex(node)),
+      ", \"outgoing\": ", ChainJson(graph, node.first_out, Direction::kOut),
+      ", \"incoming\": ", ChainJson(graph, node.first_in, Direction::kIn));
   // Its properties' chain, newest first too, each record with where it's
   // kept.
-  json += "], \"properties\": [";
+  json += ", \"properties\": [";
   PropertyId property_id = node.first_property;
   while (property_id != kNoProperty) {
     PropertyRecord property = graph.property(property_id);

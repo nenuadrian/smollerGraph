@@ -24,10 +24,10 @@ std::string ErrorJson(std::string_view message);
 std::string NamesJson(const Graph& graph, std::string_view prefix);
 
 // Returns node `id`'s record as it's kept on disk: its label, its page, its
-// offset in the page and its bytes, then its chain of relationships, newest
-// first, each with its properties, the node it goes to and where it's kept,
-// and its chain of properties, newest first, each with where it's kept. An id
-// the graph doesn't have is an error.
+// offset in the page and its bytes, then its chains of relationships out and
+// in, newest first, each with its properties, the node at its other end and
+// where it's kept, and its chain of properties, newest first, each with where
+// it's kept. An id the graph doesn't have is an error.
 absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id);
 
 // Parses, plans and runs a query in our subset of Cypher, from a request. It

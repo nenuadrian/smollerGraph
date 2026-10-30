@@ -32,29 +32,34 @@ TEST(NodeJsonTest, ShowsWhereARecordAndItsChainsAreKept) {
       graph.AddRelationship(fox, "EATS", graph.AddNode("Rabbit"));
   graph.SetRelationshipProperty(eats, "source", std::string("Wikipedia"));
   graph.AddRelationship(fox, "LIVES_IN", graph.AddNode("Forest"));
+  graph.AddRelationship(graph.AddNode("Golden eagle"), "EATS", fox);
   graph.SetProperty(fox, "legs", int64_t{4});
   graph.SetLabel(fox, "Animal");
   absl::StatusOr<std::string> json = NodeJson(graph, "0");
   ASSERT_TRUE(json.ok()) << json.status();
   // The name, padded with zeros, then the label's token, 0, then the first
   // relationship out's id, 1, with its lowest byte first, as x86 and ARM keep
-  // numbers, no relationship in, and the first property's id, 1, as the
-  // relationship's source is property 0.
-  EXPECT_EQ(*json,
-            R"({"id": 0, "name": "Red fox", "label": "Animal", "page": 1, )"
-            R"("offset": 0, )"
-            R"("bytes": "52 65 64 20 66 6f 78 00 00 00 00 00 00 00 00 00)"
-            R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)"
-            R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)"
-            R"(\u000a00 00 00 00 01 00 00 00 ff ff ff ff 01 00 00 00", )"
-            R"("chain": [{"id": 1, "type": "LIVES_IN", "properties": {}, )"
-            R"("to": 2, "to_name": "Forest", "to_label": "", "page": 1, )"
-            R"("offset": 24}, )"
-            R"({"id": 0, "type": "EATS", "properties": )"
-            R"({"source": "Wikipedia"}, "to": 1, "to_name": "Rabbit", )"
-            R"("to_label": "", "page": 1, "offset": 0}], )"
-            R"("properties": [{"id": 1, "key": "legs", "value": 4, )"
-            R"("page": 1, "offset": 64}]})");
+  // numbers, the first relationship in's, 2, and the first property's, 1, as
+  // the relationship's source is property 0.
+  EXPECT_EQ(
+      *json,
+      R"({"id": 0, "name": "Red fox", "label": "Animal", "page": 1, )"
+      R"("offset": 0, )"
+      R"("bytes": "52 65 64 20 66 6f 78 00 00 00 00 00 00 00 00 00)"
+      R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)"
+      R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)"
+      R"(\u000a00 00 00 00 01 00 00 00 02 00 00 00 01 00 00 00", )"
+      R"("outgoing": [{"id": 1, "type": "LIVES_IN", "properties": {}, )"
+      R"("node": 2, "name": "Forest", "label": "", "page": 1, )"
+      R"("offset": 24}, )"
+      R"({"id": 0, "type": "EATS", "properties": )"
+      R"({"source": "Wikipedia"}, "node": 1, "name": "Rabbit", )"
+      R"("label": "", "page": 1, "offset": 0}], )"
+      R"("incoming": [{"id": 2, "type": "EATS", "properties": {}, "node": 3, )"
+      R"("name": "Golden eagle", "label": "", "page": 1, )"
+      R"("offset": 48}], )"
+      R"("properties": [{"id": 1, "key": "legs", "value": 4, )"
+      R"("page": 1, "offset": 64}]})");
 }
 
 TEST(NodeJsonTest, RefusesANodeTheGraphDoesNotHave) {

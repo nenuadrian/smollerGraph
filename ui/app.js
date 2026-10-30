@@ -157,21 +157,28 @@ searchInput.on('input', async () => {
       });
 });
 
-// Double-clicking a node, or its inspector's button, draws the nodes its
-// relationships go to.
+// Double-clicking a node, or its inspector's button, draws the nodes at the
+// other end of its relationships, those out of it and those into it.
 d3.select('#inspector .expand').on('click', () => expand(view.selected));
 async function expand(node) {
   const record = await (await fetch(`/api/node/${node.id}`)).json();
+  const {outgoing, incoming} = record;
   view.show(
-      record.chain.map((d) => ({id: d.to, name: d.to_name, label: d.to_label})),
-      record.chain.map(
-          (d) => ({id: d.id, from: node.id, to: d.to, type: d.type})),
+      [...outgoing, ...incoming].map(
+          (d) => ({id: d.node, name: d.name, label: d.label})),
+      [
+        ...outgoing.map(
+            (d) => ({id: d.id, from: node.id, to: d.node, type: d.type})),
+        ...incoming.map(
+            (d) => ({id: d.id, from: d.node, to: node.id, type: d.type})),
+      ],
       true);
   showLegend();
 }
 
 // Clicking a node shows its record as sg keeps it on disk: its label, where
-// it is, its bytes, its chain of properties, and its chain of relationships.
+// it is, its bytes, its chain of properties, and its chains of relationships,
+// out and in.
 async function inspect(node) {
   if (!node) return;
   view.select(node);
@@ -191,13 +198,15 @@ async function inspect(node) {
       .text(
           (d) => `${d.key}: ${literal(d.value)}\n` +
               `Property ${d.id}: page ${d.page}, offset ${d.offset}`);
-  panel.select('.relationships')
-      .selectAll('li')
-      .data(record.chain)
-      .join('li')
-      .text(
-          (d) => `${d.type} → ${d.to_name}\n` +
-              `Relationship ${d.id}: page ${d.page}, offset ${d.offset}`);
+  for (const [chain, arrow] of [['outgoing', '→'], ['incoming', '←']]) {
+    panel.select(`.${chain}`)
+        .selectAll('li')
+        .data(record[chain])
+        .join('li')
+        .text(
+            (d) => `${d.type} ${arrow} ${d.name}\n` +
+                `Relationship ${d.id}: page ${d.page}, offset ${d.offset}`);
+  }
 }
 
 run(text.property('value'));
