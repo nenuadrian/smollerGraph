@@ -31,6 +31,14 @@ TEST(PlanTest, StartsFromTheIndexWhenTheStartHasAName) {
             "Return DISTINCT c.name\n");
 }
 
+TEST(PlanTest, ExpandsTheWayTheArrowPoints) {
+  EXPECT_EQ(Explained("MATCH (b {name: 'Field mouse'})<-[:EATS]-(a) "
+                      "RETURN a.name"),
+            "NodeIndexSeek (b {name: 'Field mouse'})\n"
+            "Expand (b)<-[:EATS]-(a)\n"
+            "Return a.name\n");
+}
+
 TEST(PlanTest, ScansWhenTheStartHasNoName) {
   EXPECT_EQ(Explained("MATCH (a)-[:LIVES_IN]->(p {name: 'Meadow'}) "
                       "RETURN a.name"),
@@ -120,6 +128,19 @@ TEST_F(RunTest, WalksDownTheFoodChain) {
                     "MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) "
                     "RETURN a.name, c.name"),
             (std::vector<std::string>{"Red fox, Clover", "Red fox, Wheat"}));
+}
+
+TEST_F(RunTest, FollowsRelationshipsBackwards) {
+  // What eats the field mouse, and what eats what eats the wheat.
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (b {name: 'Field mouse'})<-[:EATS]-(a) "
+                    "RETURN a.name"),
+            (std::vector<std::string>{"Red fox", "Tawny owl"}));
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (w {name: 'Wheat'})<-[:EATS]-(m)<-[:EATS]-(a) "
+                    "RETURN m.name, a.name"),
+            (std::vector<std::string>{"Field mouse, Red fox",
+                                      "Field mouse, Tawny owl"}));
 }
 
 TEST_F(RunTest, FiltersALaterNodeByName) {

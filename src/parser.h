@@ -20,10 +20,14 @@ struct NodePattern {
 };
 
 // A relationship from a node in a pattern to the next one, such as -[:EATS]->,
-// or -[:EATS*2]->, which is two of them in a row.
+// or -[:EATS*2]->, which is two of them in a row. One written <-[:EATS]- goes
+// the other way, from the next node to this one.
 struct RelationshipPattern {
   std::string type;
   int hops = 1;
+  // Which way to follow it from the node before it: out, or in when it's
+  // written with its arrow on the left.
+  Direction direction = Direction::kOut;
 };
 
 // A variable's property, such as a.name or b.weight_g.
@@ -43,8 +47,8 @@ struct Comparison {
 // A query in our subset of Cypher, such as
 //   MATCH (a {name: 'Red fox'})-[:EATS]->(b) WHERE b.weight_g < 1000
 //   RETURN DISTINCT b.name
-// with EXPLAIN in front of it to ask for its plan. Relationship i goes from
-// node i to node i + 1.
+// with EXPLAIN in front of it to ask for its plan. Relationship i joins node i
+// to node i + 1.
 struct Query {
   bool explain = false;
   std::vector<NodePattern> nodes;

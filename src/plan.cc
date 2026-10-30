@@ -140,8 +140,11 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
       int from = static_cast<int>(plan.slots.size()) - 1;
       bool last = hop == relationship.hops - 1;
       plan.slots.push_back(last ? node.variable : "");
-      plan.steps.push_back(
-          {Step::Kind::kExpand, from, from + 1, relationship.type});
+      plan.steps.push_back({.kind = Step::Kind::kExpand,
+                            .from = from,
+                            .to = from + 1,
+                            .text = relationship.type,
+                            .direction = relationship.direction});
     }
     AddFilters(query, node, static_cast<int>(plan.slots.size()) - 1,
                Step::Kind::kExpand, plan);
@@ -190,7 +193,8 @@ Result Run(const Plan& plan, const Graph& graph) {
           }
           break;
         case Step::Kind::kExpand:
-          for (NodeId node : graph.Neighbours(row[step.from], step.text)) {
+          for (NodeId node :
+               graph.Neighbours(row[step.from], step.text, step.direction)) {
             next.push_back(row);
             next.back()[step.to] = node;
           }
@@ -243,11 +247,14 @@ std::string Explain(const Plan& plan) {
         absl::StrAppend(&text, "NodeByLabelScan (", SlotName(plan, step.to),
                         ":", step.text, ")\n");
         break;
-      case Step::Kind::kExpand:
+      case Step::Kind::kExpand: {
+        // Its arrow points the way the relationships go.
+        bool out = step.direction == Direction::kOut;
         absl::StrAppend(&text, "Expand (", SlotName(plan, step.from),
-                        ")-[:", step.text, "]->(", SlotName(plan, step.to),
-                        ")\n");
+                        out ? ")-[:" : ")<-[:", step.text, out ? "]->(" : "]-(",
+                        SlotName(plan, step.to), ")\n");
         break;
+      }
       case Step::Kind::kFilter:
         absl::StrAppend(&text, "Filter ", SlotName(plan, step.from), ".",
                         step.text, " ", step.op, " ", Literal(step.value),

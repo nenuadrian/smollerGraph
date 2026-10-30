@@ -24,7 +24,8 @@ struct Step {
     // on labels, it reads each node's record to find them.
     kNodeByLabelScan,
     // For each row, a row for each node that a relationship of type `text`
-    // goes to from the node in slot `from`, in slot `to`.
+    // goes to from the node in slot `from`, in slot `to`, or comes from, when
+    // its direction is in.
     kExpand,
     // The rows whose node in slot `from` has a property `text` that compares
     // with `value` as `op` says.
@@ -39,6 +40,8 @@ struct Step {
   // A filter's operator, and the value it compares with.
   std::string op = "=";
   Value value{};
+  // Which of its node's relationships an expand follows.
+  Direction direction = Direction::kOut;
 };
 
 // How to answer a query: where to start, and where to go from there.

@@ -29,6 +29,16 @@ TEST(ParserTest, ReadsAPattern) {
   EXPECT_EQ(query->returns[1].key, "name");
 }
 
+TEST(ParserTest, ReadsARelationshipThatPointsLeft) {
+  absl::StatusOr<Query> query =
+      Parse("MATCH (b {name: 'Field mouse'})<-[:EATS]-(a) RETURN a.name");
+  ASSERT_TRUE(query.ok()) << query.status();
+  ASSERT_EQ(query->relationships.size(), 1);
+  EXPECT_EQ(query->relationships[0].type, "EATS");
+  EXPECT_EQ(query->relationships[0].direction, Direction::kIn);
+  EXPECT_EQ(query->nodes[1].variable, "a");
+}
+
 TEST(ParserTest, ReadsWhereAndProperties) {
   absl::StatusOr<Query> query = Parse(
       "MATCH (a:Animal {legs: 2})-[:EATS]->(b) WHERE b.weight_g < 1000 AND "
@@ -56,6 +66,8 @@ TEST(ParserTest, SaysWhatItExpected) {
             "expected ) at 9, not RETURN");
   EXPECT_EQ(Parse("MATCH (a)-[:EATS]-(b) RETURN b.name").status().message(),
             "expected > at 18, not (");
+  EXPECT_EQ(Parse("MATCH (a)<-[:EATS]->(b) RETURN b.name").status().message(),
+            "expected ( at 19, not >");
   EXPECT_EQ(Parse("MATCH (a)-[:EATS*20]->(b) RETURN b.name").status().message(),
             "expected a number of hops from 1 to 10 at 17, not 20");
   EXPECT_EQ(

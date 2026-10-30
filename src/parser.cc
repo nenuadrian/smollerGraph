@@ -54,7 +54,7 @@ class Parser {
     NodePattern node;
     if (!ParseNode(node)) return false;
     query.nodes.push_back(node);
-    while (IsSymbol("-")) {
+    while (IsSymbol("-") || IsSymbol("<")) {
       RelationshipPattern relationship;
       if (!ParseRelationship(relationship) || !ParseNode(node)) return false;
       query.relationships.push_back(relationship);
@@ -102,7 +102,9 @@ class Parser {
   }
 
   // relationship := - [ : type [* hops] ] - >
+  //               | < - [ : type [* hops] ] -
   bool ParseRelationship(RelationshipPattern& relationship) {
+    if (Symbol("<")) relationship.direction = Direction::kIn;
     if (!ExpectSymbol("-") || !ExpectSymbol("[") || !ExpectSymbol(":")) {
       return false;
     }
@@ -118,7 +120,9 @@ class Parser {
       }
       Next();
     }
-    return ExpectSymbol("]") && ExpectSymbol("-") && ExpectSymbol(">");
+    if (!ExpectSymbol("]") || !ExpectSymbol("-")) return false;
+    // An arrow on the left needs none on the right.
+    return relationship.direction == Direction::kIn || ExpectSymbol(">");
   }
 
   // properties := { key : value (, key : value)* }

@@ -26,8 +26,8 @@ cmake --build build
 ```
 
 `sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a
-label and properties to match, joined by relationships of one type that go right, for one hop or
-`*N`, then an optional `WHERE` of comparisons joined by `AND`, such as `b.weight_g < 1000`, and
+label and properties to match, joined by relationships of one type that go right, `-[:EATS]->`, or
+left, `<-[:EATS]-`, for one hop or `*N`, then an optional `WHERE` of comparisons joined by `AND`, such as `b.weight_g < 1000`, and
 `RETURN [DISTINCT]` properties of its variables. `EXPLAIN` in front shows the plan.
 
 ## Mammals and birds from Wikidata
