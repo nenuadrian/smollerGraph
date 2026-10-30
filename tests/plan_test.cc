@@ -39,13 +39,24 @@ TEST(PlanTest, ExpandsTheWayTheArrowPoints) {
             "Return a.name\n");
 }
 
-TEST(PlanTest, ScansWhenTheStartHasNoName) {
+TEST(PlanTest, StartsFromTheNodeThatIsCheapestToFind) {
   EXPECT_EQ(Explained("MATCH (a)-[:LIVES_IN]->(p {name: 'Meadow'}) "
                       "RETURN a.name"),
-            "AllNodesScan (a)\n"
-            "Expand (a)-[:LIVES_IN]->(p)\n"
-            "Filter p.name = 'Meadow'\n"
+            "NodeIndexSeek (p {name: 'Meadow'})\n"
+            "Expand (p)<-[:LIVES_IN]-(a)\n"
             "Return a.name\n");
+  // The family has a name, so the plan finds it in the index, and walks down
+  // to its species, in place of scanning each species.
+  EXPECT_EQ(Explained("MATCH (s:Species)-[:PARENT_TAXON*2]->(f:Family "
+                      "{name: 'Manidae'}) WHERE s.status = 'endangered' "
+                      "RETURN s.name"),
+            "NodeIndexSeek (f {name: 'Manidae'})\n"
+            "Filter f:Family\n"
+            "Expand (f)<-[:PARENT_TAXON]-(_1)\n"
+            "Expand (_1)<-[:PARENT_TAXON]-(s)\n"
+            "Filter s:Species\n"
+            "Filter s.status = 'endangered'\n"
+            "Return s.name\n");
 }
 
 TEST(PlanTest, FiltersANodeAsSoonAsItHasASlot) {
@@ -141,6 +152,15 @@ TEST_F(RunTest, FollowsRelationshipsBackwards) {
                     "RETURN m.name, a.name"),
             (std::vector<std::string>{"Field mouse, Red fox",
                                       "Field mouse, Tawny owl"}));
+}
+
+TEST_F(RunTest, StartsInTheMiddle) {
+  // The plan finds the field mouse, goes right to what it eats, then left to
+  // what eats it.
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (a)-[:EATS]->(m {name: 'Field mouse'})-[:EATS]->(w) "
+                    "RETURN a.name, w.name"),
+            (std::vector<std::string>{"Red fox, Wheat", "Tawny owl, Wheat"}));
 }
 
 TEST_F(RunTest, FiltersALaterNodeByName) {

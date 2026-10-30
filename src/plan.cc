@@ -69,6 +69,42 @@ void AddFilters(const Query& query, const NodePattern& node, int slot,
   }
 }
 
+// How costly a node of the pattern is to find, when the plan starts from it:
+// a name is found in the index, a label by a scan that keeps fewer rows, and
+// otherwise each node in the graph is a start.
+int CostToFind(const NodePattern& node) {
+  if (NameOf(node)) return 0;
+  if (!node.label.empty()) return 1;
+  return 2;
+}
+
+Direction Reversed(Direction direction) {
+  return direction == Direction::kOut ? Direction::kIn : Direction::kOut;
+}
+
+// Adds the expands from the node in `slot` to the pattern's `node`, along
+// `relationship` in `direction`, then the filters on `node`, and returns the
+// slot it ends up in.
+int AddExpands(const Query& query, const RelationshipPattern& relationship,
+               Direction direction, const NodePattern& node, int slot,
+               Plan& plan) {
+  // Each hop is an expand into a slot of its own. The last hop's slot is the
+  // pattern's node, and the ones before it are nodes it doesn't name.
+  for (int hop = 0; hop < relationship.hops; ++hop) {
+    bool last = hop == relationship.hops - 1;
+    plan.slots.push_back(last ? node.variable : "");
+    int to = static_cast<int>(plan.slots.size()) - 1;
+    plan.steps.push_back({.kind = Step::Kind::kExpand,
+                          .from = slot,
+                          .to = to,
+                          .text = relationship.type,
+                          .direction = direction});
+    slot = to;
+  }
+  AddFilters(query, node, slot, Step::Kind::kExpand, plan);
+  return slot;
+}
+
 // Whether a property compares with a value as `op` says. A missing property
 // is Cypher's null, which no comparison keeps. Values of different types are
 // never equal, and have no order.
@@ -117,10 +153,13 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
     }
   }
 
-  // A start with a name is found in the index. Without one, a start with a
-  // label is found by its label, and without either, each node in the graph
-  // is a start.
-  const NodePattern& start = query.nodes[0];
+  // The plan starts from the node of the pattern that's cheapest to find, the
+  // first of them when there's a tie.
+  size_t first = 0;
+  for (size_t i = 1; i < query.nodes.size(); ++i) {
+    if (CostToFind(query.nodes[i]) < CostToFind(query.nodes[first])) first = i;
+  }
+  const NodePattern& start = query.nodes[first];
   plan.slots.push_back(start.variable);
   std::optional<std::string> name = NameOf(start);
   if (name) {
@@ -131,23 +170,20 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
     plan.steps.push_back({Step::Kind::kAllNodesScan, -1, 0, ""});
   }
   AddFilters(query, start, 0, plan.steps.back().kind, plan);
-  for (size_t i = 0; i < query.relationships.size(); ++i) {
-    const RelationshipPattern& relationship = query.relationships[i];
-    const NodePattern& node = query.nodes[i + 1];
-    // Each hop is an expand into a slot of its own. The last hop's slot is the
-    // pattern's next node, and the ones before it are nodes it doesn't name.
-    for (int hop = 0; hop < relationship.hops; ++hop) {
-      int from = static_cast<int>(plan.slots.size()) - 1;
-      bool last = hop == relationship.hops - 1;
-      plan.slots.push_back(last ? node.variable : "");
-      plan.steps.push_back({.kind = Step::Kind::kExpand,
-                            .from = from,
-                            .to = from + 1,
-                            .text = relationship.type,
-                            .direction = relationship.direction});
-    }
-    AddFilters(query, node, static_cast<int>(plan.slots.size()) - 1,
-               Step::Kind::kExpand, plan);
+  // From the start, it expands to the pattern's right end, then to its left
+  // end, following each relationship there from the node after it, so the
+  // other way.
+  int slot = 0;
+  for (size_t i = first; i < query.relationships.size(); ++i) {
+    slot = AddExpands(query, query.relationships[i],
+                      query.relationships[i].direction, query.nodes[i + 1],
+                      slot, plan);
+  }
+  slot = 0;
+  for (size_t i = first; i > 0; --i) {
+    const RelationshipPattern& relationship = query.relationships[i - 1];
+    slot = AddExpands(query, relationship, Reversed(relationship.direction),
+                      query.nodes[i - 1], slot, plan);
   }
 
   plan.distinct = query.distinct;

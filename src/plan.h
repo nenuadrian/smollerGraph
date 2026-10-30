@@ -58,8 +58,9 @@ struct Plan {
   bool distinct = false;
 };
 
-// Plans a query. Returns an error when the query compares or returns a
-// variable its pattern doesn't have, or gives two nodes one variable.
+// Plans a query, starting from the node of its pattern that's cheapest to
+// find. Returns an error when the query compares or returns a variable its
+// pattern doesn't have, or gives two nodes one variable.
 absl::StatusOr<Plan> PlanQuery(const Query& query);
 
 // The plan's steps, a line each, in the order they run, as EXPLAIN shows them.
