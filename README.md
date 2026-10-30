@@ -6,9 +6,12 @@ in this repository, so you can check out the code at any point in a video.
 
 It keeps a graph in a folder of fixed-size records, in pages of 4 KiB that a buffer pool keeps in
 memory, with a B+ tree that finds a node by its name, and each node's and relationship's properties
-in a chain of records of their own: it loads facts written as Cypher patterns, one a line, with a
-label after a colon and properties in braces, such as `(Rabbit:Animal {legs: 4})`, walks
-relationships of one type from a node, and draws the graph in a browser.
+in a chain of records of their own. Labels and relationship types are tokens, numbers kept in place
+of their names, as in Neo4j, and each relationship is in two chains, one of the relationships that
+start at a node and one of those that end at it, so they can be followed either way. It loads facts
+written as Cypher patterns, one a line, with a label after a colon and properties in braces, such as
+`(Rabbit:Animal {legs: 4})`, walks relationships of one type from a node, and draws the graph in a
+browser.
 
 ## Building and running
 

@@ -38,6 +38,33 @@ TEST(GraphTest, NeighboursFollowOneType) {
             std::vector<std::string>{"Rabbit"});
 }
 
+TEST(GraphTest, FollowsRelationshipsBothWays) {
+  Graph graph;
+  NodeId fox = graph.AddNode("Red fox");
+  NodeId owl = graph.AddNode("Tawny owl");
+  NodeId mouse = graph.AddNode("Field mouse");
+  graph.AddRelationship(fox, "EATS", mouse);
+  graph.AddRelationship(owl, "EATS", mouse);
+  graph.AddRelationship(mouse, "EATS", graph.AddNode("Wheat"));
+  // What eats the field mouse, along the chain of relationships that end at
+  // it, and what it eats, along the chain of those that start at it.
+  EXPECT_EQ(Names(graph, graph.Neighbours(mouse, "EATS", Direction::kIn)),
+            (std::vector<std::string>{"Red fox", "Tawny owl"}));
+  EXPECT_EQ(Names(graph, graph.Neighbours(mouse, "EATS")),
+            std::vector<std::string>{"Wheat"});
+  EXPECT_TRUE(graph.Neighbours(mouse, "LIVES_IN", Direction::kIn).empty());
+}
+
+TEST(GraphTest, KeepsBothChainsOfARelationshipToItself) {
+  Graph graph;
+  NodeId snake = graph.AddNode("Ouroboros");
+  graph.AddRelationship(snake, "EATS", snake);
+  EXPECT_EQ(Names(graph, graph.Neighbours(snake, "EATS")),
+            std::vector<std::string>{"Ouroboros"});
+  EXPECT_EQ(Names(graph, graph.Neighbours(snake, "EATS", Direction::kIn)),
+            std::vector<std::string>{"Ouroboros"});
+}
+
 TEST(GraphTest, KeepsPropertiesInAChain) {
   Graph graph;
   NodeId fox = graph.AddNode("Red fox");
@@ -87,6 +114,7 @@ TEST(GraphTest, KeepsItsRecordsInAFolder) {
     NodeId rabbit = graph.AddNode("Rabbit");
     graph.AddRelationship(rabbit, "EATS", graph.AddNode("Clover"));
     graph.SetProperty(rabbit, "legs", int64_t{4});
+    graph.SetLabel(rabbit, "Animal");
   }
   Graph graph;
   ASSERT_EQ(graph.Open(path), absl::OkStatus());
@@ -94,7 +122,11 @@ TEST(GraphTest, KeepsItsRecordsInAFolder) {
   ASSERT_TRUE(rabbit);
   EXPECT_EQ(Names(graph, graph.Neighbours(*rabbit, "EATS")),
             std::vector<std::string>{"Clover"});
+  EXPECT_EQ(Names(graph, graph.Neighbours(*graph.Find("Clover"), "EATS",
+                                          Direction::kIn)),
+            std::vector<std::string>{"Rabbit"});
   EXPECT_EQ(graph.FindProperty(*rabbit, "legs"), Value(int64_t{4}));
+  EXPECT_EQ(graph.label(*rabbit), "Animal");
 }
 
 TEST(FactsTest, WalksTwoHopsDownTheFoodChain) {

@@ -52,6 +52,8 @@ Graph::Graph() {
   if (status.ok()) status = relationships_.OpenTemporary();
   if (status.ok()) status = properties_.OpenTemporary();
   if (status.ok()) status = names_.OpenTemporary();
+  if (status.ok()) status = labels_.OpenTemporary();
+  if (status.ok()) status = types_.OpenTemporary();
   if (!status.ok()) {
     std::fprintf(stderr, "smollergraph: no temporary files: %s\n",
                  status.ToString().c_str());
@@ -70,6 +72,8 @@ absl::Status Graph::Open(const std::string& path) {
   if (status.ok()) status = relationships_.Open(path + "/relationships");
   if (status.ok()) status = properties_.Open(path + "/properties");
   if (status.ok()) status = names_.Open(path + "/names");
+  if (status.ok()) status = labels_.Open(path + "/labels");
+  if (status.ok()) status = types_.Open(path + "/types");
   return status;
 }
 
@@ -77,8 +81,9 @@ NodeId Graph::AddNode(std::string_view name) {
   if (std::optional<NodeId> found = Find(name)) return *found;
   NodeRecord record;
   CopyField(record.name, name);
-  CopyField(record.label, "");
+  record.label = kNoToken;
   record.first_out = kNoRelationship;
+  record.first_in = kNoRelationship;
   record.first_property = kNoProperty;
   NodeId id = nodes_.Append(record);
   names_.Insert(name, id);
@@ -87,23 +92,31 @@ NodeId Graph::AddNode(std::string_view name) {
 
 RelationshipId Graph::AddRelationship(NodeId from, std::string_view type,
                                       NodeId to) {
-  NodeRecord node = nodes_.Read(from);
+  RelationshipId id = relationships_.count();
   RelationshipRecord record;
-  CopyField(record.type, type);
+  record.type = types_.Add(type);
   record.from = from;
   record.to = to;
-  // The new relationship goes at the front of the chain, so adding one takes
-  // two writes, however long the chain is.
-  record.next_out = node.first_out;
   record.first_property = kNoProperty;
-  node.first_out = relationships_.Append(record);
-  nodes_.Write(from, node);
-  return node.first_out;
+  // The new relationship goes at the front of two chains, the out chain of
+  // the node it starts at, and the in chain of the node it ends at.
+  NodeRecord start = nodes_.Read(from);
+  record.next_out = start.first_out;
+  start.first_out = id;
+  nodes_.Write(from, start);
+  // The end is read after the start is written, as they're one node when a
+  // relationship goes from a node to itself.
+  NodeRecord end = nodes_.Read(to);
+  record.next_in = end.first_in;
+  end.first_in = id;
+  nodes_.Write(to, end);
+  relationships_.Append(record);
+  return id;
 }
 
 void Graph::SetLabel(NodeId node, std::string_view label) {
   NodeRecord record = nodes_.Read(node);
-  CopyField(record.label, label);
+  record.label = labels_.Add(label);
   nodes_.Write(node, record);
 }
 
@@ -178,14 +191,19 @@ std::optional<NodeId> Graph::Find(std::string_view name) const {
   return names_.Find(name);
 }
 
-std::vector<NodeId> Graph::Neighbours(NodeId node,
-                                      std::string_view type) const {
+std::vector<NodeId> Graph::Neighbours(NodeId node, std::string_view type,
+                                      Direction direction) const {
   std::vector<NodeId> found;
-  RelationshipId id = nodes_.Read(node).first_out;
+  // Without a token for the type, no relationship has it, so there are none.
+  std::optional<TokenId> token = types_.Find(type);
+  if (!token) return found;
+  bool out = direction == Direction::kOut;
+  NodeRecord start = nodes_.Read(node);
+  RelationshipId id = out ? start.first_out : start.first_in;
   while (id != kNoRelationship) {
     RelationshipRecord record = relationships_.Read(id);
-    if (type == record.type) found.push_back(record.to);
-    id = record.next_out;
+    if (record.type == *token) found.push_back(out ? record.to : record.from);
+    id = out ? record.next_out : record.next_in;
   }
   // The chain is newest first, and callers get them in the order they came.
   std::reverse(found.begin(), found.end());

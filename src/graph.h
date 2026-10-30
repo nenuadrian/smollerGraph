@@ -12,6 +12,7 @@
 #include "absl/status/status.h"
 #include "name_index.h"
 #include "record_file.h"
+#include "token_store.h"
 
 namespace smollergraph {
 
@@ -24,24 +25,26 @@ using PropertyId = uint32_t;
 inline constexpr RelationshipId kNoRelationship = UINT32_MAX;
 inline constexpr PropertyId kNoProperty = UINT32_MAX;
 
-// A node on disk: its name, its label, which says what kind of node it is,
-// the first of the relationships that start at it, and the first of its
-// properties.
+// A node on disk: its name, its label's token, which says what kind of node
+// it is, the first of the relationships that start at it, the first of those
+// that end at it, and the first of its properties.
 struct NodeRecord {
-  char name[44];
-  char label[12];
+  char name[48];
+  TokenId label;
   RelationshipId first_out;
+  RelationshipId first_in;
   PropertyId first_property;
 };
 
-// A relationship on disk: its type, the nodes it joins, and the next
-// relationship that starts at `from`, so a node's relationships form a chain,
-// then the first of its properties.
+// A relationship on disk: its type's token, the nodes it joins, the next
+// relationship that starts at `from` and the next that ends at `to`, so it's
+// in a chain of each of its nodes, then the first of its properties.
 struct RelationshipRecord {
-  char type[16];
+  TokenId type;
   NodeId from;
   NodeId to;
   RelationshipId next_out;
+  RelationshipId next_in;
   PropertyId first_property;
 };
 
@@ -57,11 +60,15 @@ struct PropertyRecord {
   PropertyId next;
 };
 
-// A node and a property take 64 bytes, room for the names and values of a real
-// graph, and a relationship still takes 32.
+// A node and a property take 64 bytes, and a relationship 24, so a page holds
+// 170 relationships, with 16 bytes left at its end.
 static_assert(sizeof(NodeRecord) == 64);
-static_assert(sizeof(RelationshipRecord) == 32);
+static_assert(sizeof(RelationshipRecord) == 24);
 static_assert(sizeof(PropertyRecord) == 64);
+
+// Which of a node's relationships to follow: those that start at it, or those
+// that end at it.
+enum class Direction { kOut, kIn };
 
 // A property's value, as the graph hands it out: a whole number or a string.
 using Value = std::variant<int64_t, std::string>;
@@ -76,13 +83,13 @@ Value ValueOf(const PropertyRecord& record);
 
 // A graph kept in three files of records, one for nodes, one for
 // relationships and one for their properties, with an index that finds a node
-// by its name.
+// by its name, and a store each for the tokens of labels and types.
 class Graph {
  public:
   // The longest name, label and relationship type that fit in their records.
   static constexpr size_t kMaxName = sizeof(NodeRecord::name) - 1;
-  static constexpr size_t kMaxLabel = sizeof(NodeRecord::label) - 1;
-  static constexpr size_t kMaxType = sizeof(RelationshipRecord::type) - 1;
+  static constexpr size_t kMaxLabel = TokenStore::kMaxName;
+  static constexpr size_t kMaxType = TokenStore::kMaxName;
   // The longest key and string that fit in a property's record.
   static constexpr size_t kMaxKey = sizeof(PropertyRecord::key) - 1;
   static constexpr size_t kMaxString = sizeof(PropertyRecord::value) - 1;
@@ -98,6 +105,8 @@ class Graph {
     relationships_.Flush();
     properties_.Flush();
     names_.Flush();
+    labels_.Flush();
+    types_.Flush();
   }
 
   // Returns the node with this name, adding it the first time. The name has to
@@ -132,11 +141,18 @@ class Graph {
     return names_.NamesStartingWith(prefix, limit);
   }
 
-  // Returns the nodes one hop from `node` along relationships of `type`.
-  std::vector<NodeId> Neighbours(NodeId node, std::string_view type) const;
+  // Returns the nodes one hop from `node` along relationships of `type`, those
+  // that start at it, or with kIn, those that end at it.
+  std::vector<NodeId> Neighbours(NodeId node, std::string_view type,
+                                 Direction direction = Direction::kOut) const;
 
   std::string name(NodeId node) const { return nodes_.Read(node).name; }
-  std::string label(NodeId node) const { return nodes_.Read(node).label; }
+  std::string label(NodeId node) const {
+    return labels_.Name(nodes_.Read(node).label);
+  }
+  std::string type(RelationshipId relationship) const {
+    return types_.Name(relationships_.Read(relationship).type);
+  }
   NodeRecord node(NodeId id) const { return nodes_.Read(id); }
   RelationshipRecord relationship(RelationshipId id) const {
     return relationships_.Read(id);
@@ -147,11 +163,13 @@ class Graph {
   // How many pages the graph's files have read and written.
   uint64_t page_reads() const {
     return nodes_.page_reads() + relationships_.page_reads() +
-           properties_.page_reads() + names_.page_reads();
+           properties_.page_reads() + names_.page_reads() +
+           labels_.page_reads() + types_.page_reads();
   }
   uint64_t page_writes() const {
     return nodes_.page_writes() + relationships_.page_writes() +
-           properties_.page_writes() + names_.page_writes();
+           properties_.page_writes() + names_.page_writes() +
+           labels_.page_writes() + types_.page_writes();
   }
 
  private:
@@ -165,6 +183,8 @@ class Graph {
   RecordFile<PropertyRecord> properties_;
   // Names to node ids, in a file of their own.
   NameIndex names_;
+  TokenStore labels_;
+  TokenStore types_;
 };
 
 }  // namespace smollergraph

@@ -108,10 +108,11 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
     return absl::NotFoundError(absl::StrCat("there's no node ", id));
   }
   NodeRecord node = graph.node(*node_id);
-  std::string json = absl::StrCat(
-      "{\"id\": ", *node_id, ", \"name\": ", JsonString(node.name),
-      ", \"label\": ", JsonString(node.label), Where<NodeRecord>(*node_id),
-      ", \"bytes\": ", JsonString(Hex(node)), ", \"chain\": [");
+  std::string json =
+      absl::StrCat("{\"id\": ", *node_id, ", \"name\": ", JsonString(node.name),
+                   ", \"label\": ", JsonString(graph.label(*node_id)),
+                   Where<NodeRecord>(*node_id),
+                   ", \"bytes\": ", JsonString(Hex(node)), ", \"chain\": [");
   // The chain from the node's first relationship to its last, which is the
   // order they're kept in: newest first.
   RelationshipId relationship_id = node.first_out;
@@ -120,7 +121,8 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id) {
     if (relationship_id != node.first_out) json += ", ";
     absl::StrAppend(
         &json, "{\"id\": ", relationship_id,
-        ", \"type\": ", JsonString(relationship.type), ", \"properties\": ",
+        ", \"type\": ", JsonString(graph.type(relationship_id)),
+        ", \"properties\": ",
         PropertiesJson(graph.RelationshipProperties(relationship_id)),
         ", \"to\": ", relationship.to,
         ", \"to_name\": ", JsonString(graph.name(relationship.to)),
@@ -204,7 +206,7 @@ absl::StatusOr<std::string> QueryJson(const Graph& graph,
       if (seen.contains(relationship.to)) {
         absl::StrAppend(&json, first ? "" : ", ", "{\"id\": ", id,
                         ", \"from\": ", from, ", \"to\": ", relationship.to,
-                        ", \"type\": ", JsonString(relationship.type), "}");
+                        ", \"type\": ", JsonString(graph.type(id)), "}");
         first = false;
       }
       id = relationship.next_out;

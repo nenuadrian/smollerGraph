@@ -36,20 +36,20 @@ TEST(NodeJsonTest, ShowsWhereARecordAndItsChainsAreKept) {
   graph.SetLabel(fox, "Animal");
   absl::StatusOr<std::string> json = NodeJson(graph, "0");
   ASSERT_TRUE(json.ok()) << json.status();
-  // The name and the label, each padded with zeros, then the first
-  // relationship's id, 1, with its lowest byte first, as x86 and ARM keep
-  // numbers, and the first property's, 1, as the relationship's source is
-  // property 0.
+  // The name, padded with zeros, then the label's token, 0, then the first
+  // relationship out's id, 1, with its lowest byte first, as x86 and ARM keep
+  // numbers, no relationship in, and the first property's id, 1, as the
+  // relationship's source is property 0.
   EXPECT_EQ(*json,
             R"({"id": 0, "name": "Red fox", "label": "Animal", "page": 1, )"
             R"("offset": 0, )"
             R"("bytes": "52 65 64 20 66 6f 78 00 00 00 00 00 00 00 00 00)"
             R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)"
-            R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 41 6e 69 6d)"
-            R"(\u000a61 6c 00 00 00 00 00 00 01 00 00 00 01 00 00 00", )"
+            R"(\u000a00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00)"
+            R"(\u000a00 00 00 00 01 00 00 00 ff ff ff ff 01 00 00 00", )"
             R"("chain": [{"id": 1, "type": "LIVES_IN", "properties": {}, )"
             R"("to": 2, "to_name": "Forest", "to_label": "", "page": 1, )"
-            R"("offset": 32}, )"
+            R"("offset": 24}, )"
             R"({"id": 0, "type": "EATS", "properties": )"
             R"({"source": "Wikipedia"}, "to": 1, "to_name": "Rabbit", )"
             R"("to_label": "", "page": 1, "offset": 0}], )"
