@@ -1,6 +1,7 @@
-"""Loads the generated friends graph into smollerGraph, Kùzu and Neo4j, times a
-two-hop walk of KNOWS from each person in starts.txt in each of them, three
-times over, and writes the medians to bench/results.json.
+"""Loads the generated friends graph into smollerGraph, Kùzu and Neo4j, asks
+each of them two questions in Cypher from each person in starts.txt, three
+times over, and writes the medians to bench/results.json: how many people are
+two hops of KNOWS away, following them out of the person, and into them.
 
 From the repository's root, after building:
 
@@ -27,12 +28,17 @@ NEO4J = "neo4j:5.26-community"
 # measure is kept, so one unlucky run doesn't decide the result.
 RUNS = 3
 
-# The question each database answers: how many people are two hops of KNOWS
-# away from a person. smollerGraph's walk answers it with the size of its list.
-CYPHER = (
-    "MATCH (a:Person {name: $name})-[:KNOWS]->(:Person)-[:KNOWS]->(c:Person) "
-    "RETURN count(DISTINCT c) AS n"
-)
+# The two questions, the same pattern followed out of a person and into them.
+# Our Cypher has no count yet, so smollerGraph returns each of the people once,
+# and the rows are counted.
+QUESTIONS = {
+    "out": "MATCH (a:Person {name: $name})-[:KNOWS]->(:Person)-[:KNOWS]->"
+           "(c:Person) ",
+    "in": "MATCH (c:Person)-[:KNOWS]->(:Person)-[:KNOWS]->"
+          "(a:Person {name: $name}) ",
+}
+COUNT = "RETURN count(DISTINCT c) AS n"
+ROWS = "RETURN DISTINCT c.name"
 
 
 def timed(ask, starts):
@@ -67,12 +73,14 @@ def smollergraph(starts):
     subprocess.run([sg, "load", graph, DATA / "friends.txt"], check=True,
                    stdout=subprocess.DEVNULL)
     load_s = time.perf_counter() - begin
-    bench = subprocess.run(
-        [sg, "bench", graph, DATA / "starts.txt", "KNOWS", "2"],
-        check=True, capture_output=True, text=True)
-    measured = json.loads(bench.stdout)
-    measured.pop("open_ms")
-    measured.pop("queries")
+    measured = {}
+    for question, match in QUESTIONS.items():
+        bench = subprocess.run(
+            [sg, "bench", graph, DATA / "starts.txt", match + ROWS],
+            check=True, capture_output=True, text=True)
+        answer = json.loads(bench.stdout)
+        measured[question] = {measure: answer[measure]
+                              for measure in ("results", "median_us", "p95_us")}
     return {"load_s": round(load_s, 2), **measured}
 
 
@@ -88,8 +96,10 @@ def kuzu_bench(starts):
     conn.execute(f"COPY Person FROM '{DATA / 'people.csv'}' (header=false)")
     conn.execute(f"COPY KNOWS FROM '{DATA / 'knows.csv'}' (header=false)")
     load_s = time.perf_counter() - begin
-    measured = timed(
-        lambda name: conn.execute(CYPHER, {"name": name}).get_next()[0], starts)
+    measured = {
+        question: timed(lambda name: conn.execute(
+            match + COUNT, {"name": name}).get_next()[0], starts)
+        for question, match in QUESTIONS.items()}
     return {"load_s": round(load_s, 2), **measured}
 
 
@@ -124,9 +134,10 @@ def neo4j_bench(starts):
             session.run("CREATE INDEX person_name IF NOT EXISTS "
                         "FOR (p:Person) ON (p.name)").consume()
             session.run("CALL db.awaitIndexes()").consume()
-            measured = timed(
-                lambda name: session.run(CYPHER, name=name).single()["n"],
-                starts)
+            measured = {
+                question: timed(lambda name: session.run(
+                    match + COUNT, name=name).single()["n"], starts)
+                for question, match in QUESTIONS.items()}
         driver.close()
     finally:
         subprocess.run(["docker", "rm", "-f", "sg-bench-neo4j"],
@@ -141,17 +152,24 @@ def main():
                              ("kuzu", "Kùzu", kuzu_bench),
                              ("neo4j", "Neo4j", neo4j_bench)]:
         runs = [bench(starts) for _ in range(RUNS)]
-        if len({run["results"] for run in runs}) != 1:
-            raise SystemExit(f"{name} answered differently from run to run")
-        results[key] = {measure: statistics.median(run[measure] for run in runs)
-                        for measure in runs[0]}
-        r = results[key]
-        print(f"{name:13} load {r['load_s']:7.2f} s   two hops: median "
-              f"{r['median_us']:8.1f} µs, p95 {r['p95_us']:8.1f} µs, "
-              f"{r['results']} people", flush=True)
-    answers = {r["results"] for r in results.values()}
-    if len(answers) != 1:
-        raise SystemExit(f"the three answers differ: {answers}")
+        r = results[key] = {"load_s": statistics.median(run["load_s"]
+                                                        for run in runs)}
+        for question in QUESTIONS:
+            if len({run[question]["results"] for run in runs}) != 1:
+                raise SystemExit(f"{name} answered differently from run to run")
+            r[question] = {measure: statistics.median(run[question][measure]
+                                                      for run in runs)
+                           for measure in runs[0][question]}
+        print(f"{name:13} load {r['load_s']:6.2f} s   out: median "
+              f"{r['out']['median_us']:7.1f} µs   in: median "
+              f"{r['in']['median_us']:7.1f} µs", flush=True)
+    for question in QUESTIONS:
+        answers = {r[question]["results"] for r in results.values()}
+        if len(answers) != 1:
+            raise SystemExit(f"the three answers differ: {answers}")
+    print(f"All three agree: {results['smollergraph']['out']['results']} "
+          f"people two hops out, and {results['smollergraph']['in']['results']}"
+          " in")
     (ROOT / "bench" / "results.json").write_text(
         json.dumps(results, indent=2, ensure_ascii=False) + "\n")
 

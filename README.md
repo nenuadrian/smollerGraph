@@ -84,8 +84,9 @@ ctest --test-dir build --output-on-failure
 ## Benchmarks
 
 `bench/compare.py` loads a generated social graph into smollerGraph, Kùzu and Neo4j (in Docker),
-and times a two-hop walk of KNOWS from a thousand people in each, three times over, writing the
-medians to `bench/results.json`:
+and asks each of them two questions in Cypher from a thousand people, three times over: how many
+people are two hops of KNOWS away, following them out of a person, and following them in. `sg bench`
+parses and plans each query as well as running it. It writes the medians to `bench/results.json`:
 
 ```bash
 ./build/make_friends 100000 10 bench/data

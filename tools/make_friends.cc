@@ -43,7 +43,12 @@ int main(int argc, char** argv) {
   std::ofstream nodes(folder + "/people.csv");
   std::ofstream relationships(folder + "/knows.csv");
   std::ofstream starts(folder + "/starts.txt");
-  for (uint32_t i = 1; i <= people; ++i) nodes << "Person " << i << '\n';
+  // Each person has a line of their own first, with the label Person, which
+  // they have in Neo4j and Kùzu too.
+  for (uint32_t i = 1; i <= people; ++i) {
+    facts << "(Person " << i << ":Person)\n";
+    nodes << "Person " << i << '\n';
+  }
 
   // A fixed seed, and the generator's raw numbers, which the standard defines
   // to the bit, so every run on every machine writes the same graph.

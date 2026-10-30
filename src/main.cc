@@ -12,6 +12,8 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_replace.h"
 #include "facts.h"
 #include "graph.h"
 #include "parser.h"
@@ -27,8 +29,7 @@ int Usage() {
   std::cerr
       << "usage: sg load <graph folder> <facts file>\n"
          "       sg walk <graph folder> <start> <relationship type> <hops>\n"
-         "       sg bench <graph folder> <starts file> <relationship type> "
-         "<hops>\n"
+         "       sg bench <graph folder> <starts file> <query with $name>\n"
          "       sg serve <graph folder> <port> [address]\n"
          "       sg query <graph folder> <query>\n";
   return 1;
@@ -83,41 +84,51 @@ int Walk(const smollergraph::Graph& graph, const char* start, const char* type,
   return 0;
 }
 
-// Times a walk of `hops` relationships of `type` from each node named in the
-// file at `path`, after a first pass that warms the system's caches, and
-// prints how long opening the graph and the walks took, as JSON.
-int Bench(const smollergraph::Graph& graph, const char* path, const char* type,
+// Parses, plans and runs a query, and returns how many rows it returned.
+absl::StatusOr<size_t> CountRows(const smollergraph::Graph& graph,
+                                 std::string_view text) {
+  absl::StatusOr<smollergraph::Query> query = smollergraph::Parse(text);
+  if (!query.ok()) return query.status();
+  absl::StatusOr<smollergraph::Plan> plan = smollergraph::PlanQuery(*query);
+  if (!plan.ok()) return plan.status();
+  return smollergraph::Run(*plan, graph).rows.size();
+}
+
+// Times a query in our subset of Cypher from each node named in the file at
+// `path`, after a first pass that warms the system's caches, and prints how
+// long opening the graph and the queries took, as JSON. Our Cypher has no
+// parameters, so each name goes into the query in place of $name, in quotes,
+// and each query is parsed and planned, as well as run.
+int Bench(const smollergraph::Graph& graph, const char* path,
           std::string_view text, double open_ms) {
-  int hops = 0;
-  if (!ParseHops(text, hops)) return 1;
   std::ifstream file(path);
   if (!file) {
     std::cerr << "sg: can't open " << path << '\n';
     return 1;
   }
-  std::vector<smollergraph::NodeId> starts;
+  std::vector<std::string> queries;
   for (std::string name; std::getline(file, name);) {
-    std::optional<smollergraph::NodeId> node = graph.Find(name);
-    if (!node) {
-      std::cerr << "sg: there's no node called " << name << '\n';
-      return 1;
-    }
-    starts.push_back(*node);
+    queries.push_back(
+        absl::StrReplaceAll(text, {{"$name", absl::StrCat("'", name, "'")}}));
   }
-  if (starts.empty()) {
+  if (queries.empty()) {
     std::cerr << "sg: " << path << " names no nodes\n";
     return 1;
   }
 
-  size_t results = 0;
-  for (smollergraph::NodeId start : starts) {
-    results += smollergraph::Walk(graph, start, type, hops).size();
+  // The first pass checks that each query can be answered, too.
+  for (const std::string& query : queries) {
+    if (absl::StatusOr<size_t> rows = CountRows(graph, query); !rows.ok()) {
+      std::cerr << "sg: " << rows.status().message() << '\n';
+      return 1;
+    }
   }
+  size_t results = 0;
   std::vector<double> micros;
   uint64_t reads_before = graph.page_reads();
-  for (smollergraph::NodeId start : starts) {
+  for (const std::string& query : queries) {
     Clock::time_point begin = Clock::now();
-    smollergraph::Walk(graph, start, type, hops);
+    results += CountRows(graph, query).value_or(0);
     std::chrono::duration<double, std::micro> took = Clock::now() - begin;
     micros.push_back(took.count());
   }
@@ -195,7 +206,7 @@ int main(int argc, char** argv) {
   std::string_view command = argc > 1 ? argv[1] : "";
   bool load = command == "load" && argc == 4;
   bool walk = command == "walk" && argc == 6;
-  bool bench = command == "bench" && argc == 6;
+  bool bench = command == "bench" && argc == 5;
   bool serve = command == "serve" && (argc == 4 || argc == 5);
   bool query = command == "query" && argc == 4;
   if (!load && !walk && !bench && !serve && !query) return Usage();
@@ -212,5 +223,5 @@ int main(int argc, char** argv) {
   if (walk) return Walk(graph, argv[3], argv[4], argv[5]);
   if (serve) return Serve(graph, argv[3], argc == 5 ? argv[4] : "127.0.0.1");
   if (query) return RunQuery(graph, argv[3]);
-  return Bench(graph, argv[3], argv[4], argv[5], opened.count());
+  return Bench(graph, argv[3], argv[4], opened.count());
 }
