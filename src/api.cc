@@ -1,6 +1,7 @@
 #include "api.h"
 
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -12,6 +13,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "embed.h"
 #include "parser.h"
 #include "plan.h"
 #include "record_file.h"
@@ -226,6 +228,30 @@ absl::StatusOr<std::string> QueryJson(const Graph& graph,
       }
       id = relationship.next_out;
     }
+  }
+  return json + "]}";
+}
+
+absl::StatusOr<std::string> SimilarJson(const Graph& graph,
+                                        std::string_view id) {
+  std::optional<uint32_t> node = ParseNumber(id, UINT32_MAX);
+  if (!node || *node >= graph.node_count()) {
+    return absl::NotFoundError(absl::StrCat("there's no node ", id));
+  }
+  std::vector<Embedding> embeddings = graph.Embeddings();
+  if (embeddings.empty()) {
+    return absl::FailedPreconditionError(
+        "the graph has no embeddings, which sg embed keeps");
+  }
+  std::string json = "{\"similar\": [";
+  bool first = true;
+  for (auto [other, cosine] : MostSimilar(embeddings, *node, kSimilar)) {
+    // Three decimal places are plenty to tell the nodes apart.
+    absl::StrAppend(&json, first ? "" : ", ", "{\"id\": ", other,
+                    ", \"name\": ", JsonString(graph.name(other)),
+                    ", \"label\": ", JsonString(graph.label(other)),
+                    ", \"cosine\": ", std::round(cosine * 1000) / 1000, "}");
+    first = false;
   }
   return json + "]}";
 }

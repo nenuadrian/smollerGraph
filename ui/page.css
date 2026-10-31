@@ -284,7 +284,8 @@ main {
   letter-spacing: 0;
 }
 
-#inspector .expand {
+#inspector .expand,
+#inspector .similar {
   margin-bottom: 4px;
 }
 

@@ -61,6 +61,10 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
                                             httplib::Response& response) {
     Send(NodeJson(graph, request.matches[1].str()), response);
   });
+  server.Get(R"(/api/similar/(\d+))", [&graph](const httplib::Request& request,
+                                               httplib::Response& response) {
+    Send(SimilarJson(graph, request.matches[1].str()), response);
+  });
   if (!server.bind_to_port(address, port)) {
     return absl::UnavailableError(
         absl::StrCat("can't listen on ", address, " port ", port));

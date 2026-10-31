@@ -21,11 +21,14 @@ export function colourOf(label) {
 }
 
 // The layout, which the page and the benchmark share. Relationships pull
-// their nodes together, nodes push each other apart and keep out of each
-// other's way, and the whole graph is pulled towards the middle.
+// their nodes together, to a distance of their own when they have one, nodes
+// push each other apart and keep out of each other's way, and the whole graph
+// is pulled towards the middle.
 export function layout() {
   return d3.forceSimulation()
-      .force('link', d3.forceLink().id((d) => d.id).distance(50))
+      .force(
+          'link',
+          d3.forceLink().id((d) => d.id).distance((d) => d.distance ?? 50))
       .force('charge', d3.forceManyBody().strength(-200))
       .force('collide', d3.forceCollide(RADIUS * 2))
       .force('x', d3.forceX())

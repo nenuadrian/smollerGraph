@@ -2,9 +2,11 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "embed.h"
 #include "graph.h"
 #include "gtest/gtest.h"
 
@@ -132,6 +134,25 @@ TEST(QueryJsonTest, DrawsEachNodeOfAPath) {
             R"("to": 1, "type": "EATS", "properties": {}}, {"id": 0, )"
             R"("from": 0, "to": 2, )"
             R"("type": "EATS", "properties": {}}]})");
+}
+
+TEST(SimilarJsonTest, AnswersWithTheMostSimilarNodes) {
+  Graph graph;
+  NodeId panthera = graph.AddNode("Panthera");
+  graph.AddRelationship(graph.AddNode("Lion"), "PARENT_TAXON", panthera);
+  graph.AddRelationship(graph.AddNode("Tiger"), "PARENT_TAXON", panthera);
+  // Without embeddings, there's nothing to compare.
+  EXPECT_TRUE(absl::IsFailedPrecondition(SimilarJson(graph, "1").status()));
+  std::vector<Embedding> embeddings = FastRP(graph, "PARENT_TAXON", 42);
+  for (NodeId node = 0; node < embeddings.size(); ++node) {
+    graph.SetEmbedding(node, embeddings[node]);
+  }
+  // The lion and the tiger share their neighbour, so they're alike.
+  absl::StatusOr<std::string> similar = SimilarJson(graph, "1");
+  ASSERT_TRUE(similar.ok()) << similar.status();
+  EXPECT_TRUE(similar->starts_with(
+      R"({"similar": [{"id": 2, "name": "Tiger", "label": "", "cosine": 1}, )"));
+  EXPECT_TRUE(absl::IsNotFound(SimilarJson(graph, "3").status()));
 }
 
 }  // namespace

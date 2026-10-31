@@ -9,6 +9,7 @@ services:
     build: { context: ., target: build }
     command: >-
       sh -c "rm -rf wikidata.sg && ./build/sg load wikidata.sg data/wikidata.txt
+      && ./build/sg embed wikidata.sg PARENT_TAXON
       && exec ./build/sg serve wikidata.sg 8474 0.0.0.0"
     init: true
     restart: unless-stopped

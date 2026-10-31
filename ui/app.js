@@ -186,6 +186,36 @@ async function expand(node) {
   showLegend();
 }
 
+// The inspector's second button draws the nodes whose embeddings are most like
+// the node's, joined to it by their cosines, when sg embed has kept them.
+d3.select('#inspector .similar').on('click', () => similar(view.selected));
+async function similar(node) {
+  const answer = await (await fetch(`/api/similar/${node.id}`)).json();
+  const status = d3.select('#status').classed('error', Boolean(answer.error));
+  if (answer.error) {
+    status.text(answer.error);
+    return;
+  }
+  // A line from the node to each of them, with its cosine, and the less alike,
+  // the longer the line.
+  const links = [];
+  for (const d of answer.similar) {
+    links.push({
+      id: `similar ${d.id}`,
+      from: node.id,
+      to: d.id,
+      type: 'SIMILAR',
+      properties: {cosine: d.cosine.toFixed(2)},
+      distance: 80 + 300 * (1 - d.cosine),
+    });
+  }
+  view.show([node, ...answer.similar], links);
+  showLegend();
+  status.text(
+      `The ${count(answer.similar.length, 'node')} most like ` +
+      `${node.name}, by the cosines of their embeddings`);
+}
+
 // Clicking a node shows its record as sg keeps it on disk: its label, where
 // it is, its bytes, its chain of properties, and its chains of relationships,
 // out and in.

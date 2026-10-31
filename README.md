@@ -75,14 +75,15 @@ return on a canvas, a path as its nodes and the relationships between them, laid
 time, with the rows in a table, the plan, and what the query cost on the server. A search finds a
 node by its name, clicking a node shows its record as it's kept on disk, with its chain of
 properties and its chains of relationships out and in, and double-clicking it draws the nodes at
-the other end of both:
+the other end of both. Its second button draws the ten nodes whose embeddings are most like its, each
+at a distance that grows as their cosine falls:
 
 ```bash
 ./build/sg serve wikidata.sg 8474
 ```
 
-Then open http://localhost:8474. Or, with Docker, `docker compose up` loads the mammals and birds
-and serves them there, and `docker compose -f compose.yaml -f compose.friends.yaml up` serves the
+Then open http://localhost:8474. Or, with Docker, `docker compose up` loads the mammals and birds,
+gives them their embeddings and serves them there, and `docker compose -f compose.yaml -f compose.friends.yaml up` serves the
 friends from the benchmarks, with their weights, which the page draws on each relationship.
 
 ## Deploying

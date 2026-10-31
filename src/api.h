@@ -38,9 +38,17 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id);
 // query took on the server, and how many pages it read. After EXPLAIN, it
 // answers with the plan, and it says what's wrong with a query it can't run.
 inline constexpr size_t kMaxRows = 1000;
+// How many of the most similar nodes the page draws.
+inline constexpr size_t kSimilar = 10;
 inline constexpr size_t kMaxDrawn = 500;
 absl::StatusOr<std::string> QueryJson(const Graph& graph,
                                       std::string_view text);
+
+// Returns the kSimilar nodes whose embeddings are most like node `id`'s, the
+// most alike first, each with its name, its label and its cosine. An id the
+// graph doesn't have is an error, and so is a graph without embeddings.
+absl::StatusOr<std::string> SimilarJson(const Graph& graph,
+                                        std::string_view id);
 
 }  // namespace smollergraph
 
