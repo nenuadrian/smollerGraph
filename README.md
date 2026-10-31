@@ -46,6 +46,17 @@ embeddings point most nearly the same way as a node's, by their cosine:
 `sg export` writes a graph into a folder for programs outside the database, such as a script that
 trains a model on it: `nodes.jsonl`, a line of JSON for each node, with its id, name, label and
 properties, and `relationships.csv`, the ids of the nodes each relationship joins, and its type.
+`tools/gnn.py` trains a small graph neural network on it, a GraphSAGE of four layers in PyTorch,
+which learns which species are threatened from their weights and from what's known of their
+relatives, and writes the risk it gives the species it didn't learn from as facts, which `sg load`
+adds to the graph, for Cypher to ask about:
+
+```bash
+./build/sg export wikidata.sg export
+uv run --with torch --with numpy python tools/gnn.py export predictions.txt
+./build/sg load wikidata.sg predictions.txt
+./build/sg query wikidata.sg "MATCH (s:Species) WHERE s.status = 'least concern' AND s.risk > 70 RETURN s.name, s.risk"
+```
 
 `sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a
 label and properties to match, joined by relationships of one type that go right, `-[:EATS]->`,

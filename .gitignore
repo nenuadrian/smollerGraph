@@ -4,3 +4,5 @@ bench/data/
 bench/results.json
 __pycache__/
 bench/ui.json
+export/
+predictions.txt
