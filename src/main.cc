@@ -14,6 +14,7 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
+#include "embed.h"
 #include "facts.h"
 #include "graph.h"
 #include "parser.h"
@@ -31,6 +32,7 @@ int Usage() {
          "       sg walk <graph folder> <start> <relationship type> <hops>\n"
          "       sg path <graph folder> <from> <to> <relationship type> "
          "[weight key]\n"
+         "       sg similar <graph folder> <name> <relationship type> <k>\n"
          "       sg bench <graph folder> <starts file> <query with $name>\n"
          "       sg serve <graph folder> <port> [address]\n"
          "       sg query <graph folder> <query>\n";
@@ -117,6 +119,33 @@ int FindPath(const smollergraph::Graph& graph, const char* from, const char* to,
   std::cout << search.reached << " nodes reached in " << std::fixed
             << std::setprecision(2) << took.count() << " ms, "
             << graph.page_reads() - reads << " pages read\n";
+  return 0;
+}
+
+// Prints the `text` nodes most like the node named `name`, as their
+// embeddings say, computed with FastRP along relationships of `type`.
+int Similar(const smollergraph::Graph& graph, const char* name,
+            const char* type, std::string_view text) {
+  std::optional<smollergraph::NodeId> node = graph.Find(name);
+  if (!node) {
+    std::cerr << "sg: there's no node called " << name << '\n';
+    return 1;
+  }
+  int k = 0;
+  if (!absl::SimpleAtoi(text, &k) || k < 1) {
+    std::cerr << "sg: k is a number of nodes, not " << text << '\n';
+    return 1;
+  }
+  Clock::time_point begin = Clock::now();
+  std::vector<smollergraph::Embedding> embeddings =
+      smollergraph::FastRP(graph, type, 42);
+  std::chrono::duration<double, std::milli> took = Clock::now() - begin;
+  std::cout << embeddings.size() << " embeddings in " << std::fixed
+            << std::setprecision(1) << took.count() << " ms\n";
+  for (auto [other, cosine] : smollergraph::MostSimilar(embeddings, *node, k)) {
+    std::cout << std::setprecision(3) << cosine << "  " << graph.name(other)
+              << " (" << graph.label(other) << ")\n";
+  }
   return 0;
 }
 
@@ -243,10 +272,13 @@ int main(int argc, char** argv) {
   bool load = command == "load" && argc == 4;
   bool walk = command == "walk" && argc == 6;
   bool path = command == "path" && (argc == 6 || argc == 7);
+  bool similar = command == "similar" && argc == 6;
   bool bench = command == "bench" && argc == 5;
   bool serve = command == "serve" && (argc == 4 || argc == 5);
   bool query = command == "query" && argc == 4;
-  if (!load && !walk && !path && !bench && !serve && !query) return Usage();
+  if (!load && !walk && !path && !similar && !bench && !serve && !query) {
+    return Usage();
+  }
 
   smollergraph::Graph graph;
   Clock::time_point opening = Clock::now();
@@ -262,6 +294,7 @@ int main(int argc, char** argv) {
     return FindPath(graph, argv[3], argv[4], argv[5],
                     argc == 7 ? argv[6] : nullptr);
   }
+  if (similar) return Similar(graph, argv[3], argv[4], argv[5]);
   if (serve) return Serve(graph, argv[3], argc == 5 ? argv[4] : "127.0.0.1");
   if (query) return RunQuery(graph, argv[3]);
   return Bench(graph, argv[3], argv[4], opened.count());
