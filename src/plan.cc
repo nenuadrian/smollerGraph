@@ -155,15 +155,21 @@ absl::StatusOr<Plan> AddReturns(const Query& query, Plan plan) {
   plan.distinct = query.distinct;
   for (const ReturnItem& item : query.returns) {
     if (!query.path.empty() && item.variable == query.path) {
-      // A path has no properties, so it's returned whole, or as its length.
+      // A path has no properties, so it's returned whole, or as a function
+      // of it, and a shortest path counts hops, so it has no cost.
       if (!item.key.empty()) {
         return absl::InvalidArgumentError(
             absl::StrCat("the path ", item.variable, " has no properties"));
       }
-      plan.returns.push_back(
-          {.heading = item.length ? absl::StrCat("length(", item.variable, ")")
-                                  : item.variable,
-           .length = item.length});
+      if (item.function == "cost" && query.shortest) {
+        return absl::InvalidArgumentError(
+            "a shortest path has no cost, as it counts hops");
+      }
+      plan.returns.push_back({.heading = item.function.empty()
+                                             ? item.variable
+                                             : absl::StrCat(item.function, "(",
+                                                            item.variable, ")"),
+                              .function = item.function});
       continue;
     }
     auto found = std::find(plan.slots.begin(), plan.slots.end(), item.variable);
@@ -171,7 +177,7 @@ absl::StatusOr<Plan> AddReturns(const Query& query, Plan plan) {
       return absl::InvalidArgumentError(
           absl::StrCat("there's no variable called ", item.variable));
     }
-    if (item.key.empty() || item.length) {
+    if (item.key.empty() || !item.function.empty()) {
       return absl::InvalidArgumentError(
           absl::StrCat("a node is returned by its properties, such as ",
                        item.variable, ".name"));
@@ -227,18 +233,26 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
     if (query.relationships.size() != 1 ||
         query.relationships[0].hops != kAnyHops) {
       return absl::InvalidArgumentError(
-          "shortestPath needs two nodes, with a relationship of any number of "
-          "hops between them, such as (a)-[:KNOWS*]-(b)");
+          "a path needs two nodes, with a relationship of any number of hops "
+          "between them, such as (a)-[:KNOWS*]-(b)");
+    }
+    const RelationshipPattern& relationship = query.relationships[0];
+    // A path is a shortest one, or with a weight, a cheapest one.
+    if (query.shortest == !relationship.weight.empty()) {
+      return absl::InvalidArgumentError(
+          "a path needs shortestPath, or WSHORTEST with a weight, not both");
     }
     // Both ends are found, each in the way that's cheapest for it, and then
     // the path between them.
     int from = AddFind(query, query.nodes[0], plan);
     int to = AddFind(query, query.nodes[1], plan);
-    plan.steps.push_back({.kind = Step::Kind::kShortestPath,
+    plan.steps.push_back({.kind = query.shortest ? Step::Kind::kShortestPath
+                                                 : Step::Kind::kCheapestPath,
                           .from = from,
                           .to = to,
-                          .text = query.relationships[0].type,
-                          .direction = query.relationships[0].direction});
+                          .text = relationship.type,
+                          .direction = relationship.direction,
+                          .weight = relationship.weight});
     return AddReturns(query, std::move(plan));
   }
 
@@ -311,10 +325,15 @@ Result Run(const Plan& plan, const Graph& graph) {
             next.push_back(row);
           }
           break;
-        case Step::Kind::kShortestPath: {
+        case Step::Kind::kShortestPath:
+        case Step::Kind::kCheapestPath: {
+          NodeId from = row.nodes[step.from];
+          NodeId to = row.nodes[step.to];
           PathSearch search =
-              ShortestPath(graph, row.nodes[step.from], row.nodes[step.to],
-                           step.text, step.direction);
+              step.kind == Step::Kind::kShortestPath
+                  ? ShortestPath(graph, from, to, step.text, step.direction)
+                  : CheapestPath(graph, from, to, step.text, step.direction,
+                                 step.weight);
           if (search.path) {
             next.push_back(row);
             next.back().path = *std::move(search.path);
@@ -339,9 +358,11 @@ Result Run(const Plan& plan, const Graph& graph) {
         NodeId node = row.nodes[column.slot];
         cells.push_back(
             {.node = node, .value = graph.FindProperty(node, column.key)});
-      } else if (column.length) {
+      } else if (column.function == "length") {
         int64_t length = row.path.relationships.size();
         cells.push_back({row.path.nodes[0], length, row.path});
+      } else if (column.function == "cost") {
+        cells.push_back({row.path.nodes[0], row.path.cost, row.path});
       } else {
         cells.push_back(
             {row.path.nodes[0], PathText(graph, row.path), row.path});
@@ -390,6 +411,13 @@ std::string Explain(const Plan& plan) {
         absl::StrAppend(&text, "ShortestPath (", SlotName(plan, step.from), ")",
                         Arrow(step.direction, step.text + "*"), "(",
                         SlotName(plan, step.to), ")\n");
+        break;
+      case Step::Kind::kCheapestPath:
+        absl::StrAppend(
+            &text, "CheapestPath (", SlotName(plan, step.from), ")",
+            Arrow(step.direction,
+                  absl::StrCat(step.text, "* WSHORTEST(", step.weight, ")")),
+            "(", SlotName(plan, step.to), ")\n");
         break;
     }
   }

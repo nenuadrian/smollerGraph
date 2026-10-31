@@ -37,7 +37,9 @@ label and properties to match, joined by relationships of one type that go right
 left, `<-[:EATS]-`, or either way, `-[:EATS]-`, for one hop or `*N`, then an optional `WHERE` of
 comparisons joined by `AND`, such as `b.weight_g < 1000`, and `RETURN [DISTINCT]` properties of its
 variables. `MATCH p = shortestPath((a {name: 'Red fox'})-[:PARENT_TAXON*]-(b {name: 'Lion'}))`
-finds a shortest path between two nodes, which `RETURN p` returns, and `length(p)` its length. The plan starts from the node that's cheapest to
+finds a shortest path between two nodes, which `RETURN p` returns, and `length(p)` its length.
+`MATCH p = (a {name: 'Person 1'})-[:KNOWS* WSHORTEST(weight)]-(b {name: 'Person 2'})`, as Kùzu
+writes it, finds a cheapest path, and `cost(p)` returns what its weights add up to. The plan starts from the node that's cheapest to
 find, by its name in the index, then by its label, and expands from it both ways along the pattern,
 or for a shortest path, finds both its ends, and `EXPLAIN` in front shows it.
 

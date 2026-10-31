@@ -45,7 +45,7 @@ class Parser {
   // What's wrong with the query, once a part has failed.
   const absl::Status& status() const { return status_; }
 
-  // query := [EXPLAIN] MATCH (pattern | variable = shortestPath(pattern))
+  // query := [EXPLAIN] MATCH [variable =] (pattern | shortestPath(pattern))
   //          [WHERE comparison (AND comparison)*]
   //          RETURN [DISTINCT] item (, item)*
   // pattern := node (relationship node)*
@@ -53,11 +53,11 @@ class Parser {
     query.explain = Keyword("EXPLAIN");
     if (!ExpectKeyword("MATCH")) return false;
     // A word and an equals sign name the path that follows.
-    bool shortest = Peek().kind == TokenKind::kWord && IsSymbolAt(1, "=");
-    if (shortest) {
+    if (Peek().kind == TokenKind::kWord && IsSymbolAt(1, "=")) {
       query.path = Next().text;
       Next();
-      if (!ExpectKeyword("shortestPath") || !ExpectSymbol("(")) return false;
+      query.shortest = Keyword("shortestPath");
+      if (query.shortest && !ExpectSymbol("(")) return false;
     }
     NodePattern node;
     if (!ParseNode(node)) return false;
@@ -68,7 +68,7 @@ class Parser {
       query.relationships.push_back(relationship);
       query.nodes.push_back(node);
     }
-    if (shortest && !ExpectSymbol(")")) return false;
+    if (query.shortest && !ExpectSymbol(")")) return false;
     if (Keyword("WHERE")) {
       do {
         Comparison comparison;
@@ -110,8 +110,8 @@ class Parser {
     return ExpectSymbol(")");
   }
 
-  // relationship := - [ : type [* [hops]] ] - [>]
-  //               | < - [ : type [* [hops]] ] -
+  // relationship := - [ : type [* [hops | WSHORTEST(key)]] ] - [>]
+  //               | < - [ : type [* [hops | WSHORTEST(key)]] ] -
   bool ParseRelationship(RelationshipPattern& relationship) {
     if (Symbol("<")) relationship.direction = Direction::kIn;
     if (!ExpectSymbol("-") || !ExpectSymbol("[") || !ExpectSymbol(":")) {
@@ -123,9 +123,16 @@ class Parser {
       const std::string& text = Peek().text;
       auto [end, failed] = std::from_chars(
           text.data(), text.data() + text.size(), relationship.hops);
-      // A star with no number after it stands for any number of hops.
+      // A star with no number after it stands for any number of hops, and
+      // WSHORTEST after it names the weight a cheapest path adds up.
       if (Peek().kind != TokenKind::kNumber) {
         relationship.hops = kAnyHops;
+        if (Keyword("WSHORTEST")) {
+          if (!ExpectSymbol("(")) return false;
+          if (Peek().kind != TokenKind::kWord) return Fail("a key");
+          relationship.weight = Next().text;
+          if (!ExpectSymbol(")")) return false;
+        }
       } else if (failed != std::errc() || relationship.hops < 1 ||
                  relationship.hops > kMaxHops) {
         return Fail("a number of hops from 1 to " + std::to_string(kMaxHops));
@@ -195,11 +202,17 @@ class Parser {
     return true;
   }
 
-  // item := variable [. key] | length ( variable )
+  // item := variable [. key] | (length | cost) ( variable )
   bool ParseReturnItem(ReturnItem& item) {
     if (Peek().kind == TokenKind::kWord && IsSymbolAt(1, "(")) {
-      if (!ExpectKeyword("length") || !ExpectSymbol("(")) return false;
-      item.length = true;
+      if (Keyword("length")) {
+        item.function = "length";
+      } else if (Keyword("cost")) {
+        item.function = "cost";
+      } else {
+        return Fail("length or cost");
+      }
+      if (!ExpectSymbol("(")) return false;
       if (Peek().kind != TokenKind::kWord) return Fail("a variable");
       item.variable = Next().text;
       return ExpectSymbol(")");

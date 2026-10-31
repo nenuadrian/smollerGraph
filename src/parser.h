@@ -33,6 +33,9 @@ struct RelationshipPattern {
   // Which way to follow it from the node before it: out, in when it's written
   // with its arrow on the left, or both with no arrow.
   Direction direction = Direction::kOut;
+  // The property a cheapest path adds up, as in -[:KNOWS* WSHORTEST(weight)]-,
+  // which is how Kùzu writes it.
+  std::string weight;
 };
 
 // A variable's property, such as a.name or b.weight_g.
@@ -50,12 +53,13 @@ struct Comparison {
 };
 
 // What a query returns in a column: a variable's property, such as b.name,
-// or with no key, a path's variable, such as p, which returns the path, or
-// length(p), which returns how many relationships it has.
+// or with no key, a path's variable, such as p, which returns the path, or a
+// function of the path: length(p), how many relationships it has, or cost(p),
+// what its weights add up to.
 struct ReturnItem {
   std::string variable;
   std::string key;
-  bool length = false;
+  std::string function;
 };
 
 // A query in our subset of Cypher, such as
@@ -66,8 +70,10 @@ struct ReturnItem {
 struct Query {
   bool explain = false;
   // The path's variable, for a pattern written as p = shortestPath(...),
-  // which asks for a shortest path between its two nodes.
+  // which asks for a shortest path between its two nodes, or as p = (...),
+  // for a cheapest path.
   std::string path;
+  bool shortest = false;
   std::vector<NodePattern> nodes;
   std::vector<RelationshipPattern> relationships;
   // The comparisons in WHERE, joined by AND, so a row has to pass them all.

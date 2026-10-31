@@ -95,6 +95,20 @@ TEST(PlanTest, FindsBothEndsOfAShortestPath) {
             "a relationship with any number of hops needs shortestPath");
 }
 
+TEST(PlanTest, FindsACheapestPathWithAWeight) {
+  EXPECT_EQ(Explained("MATCH p = (a {name: 'Ada'})-[:KNOWS* WSHORTEST(weight)]"
+                      "-(b {name: 'Dee'}) RETURN cost(p)"),
+            "NodeIndexSeek (a {name: 'Ada'})\n"
+            "NodeIndexSeek (b {name: 'Dee'})\n"
+            "CheapestPath (a)-[:KNOWS* WSHORTEST(weight)]-(b)\n"
+            "Return cost(p)\n");
+  EXPECT_EQ(Explained("MATCH p = (a)-[:KNOWS*]-(b) RETURN p"),
+            "a path needs shortestPath, or WSHORTEST with a weight, not both");
+  EXPECT_EQ(Explained("MATCH p = shortestPath((a)-[:KNOWS*]-(b)) "
+                      "RETURN cost(p)"),
+            "a shortest path has no cost, as it counts hops");
+}
+
 TEST(PlanTest, RefusesVariablesItCannotPlan) {
   EXPECT_EQ(Explained("MATCH (a) RETURN b.name"),
             "there's no variable called b");
@@ -234,6 +248,22 @@ TEST_F(RunTest, FiltersAndReturnsProperties) {
                     "MATCH (a {name: 'Rabbit'})-[:EATS]->(b) "
                     "RETURN b.name, b.weight_g"),
             std::vector<std::string>{"Clover, null"});
+}
+
+TEST(WeightedRunTest, AddsUpTheWeightsOfACheapestPath) {
+  std::istringstream facts(
+      "(Ada)-[:KNOWS {weight: 30}]->(Bob)\n"
+      "(Bob)-[:KNOWS {weight: 1}]->(Dee)\n"
+      "(Ada)-[:KNOWS {weight: 2}]->(Cy)\n"
+      "(Cy)-[:KNOWS {weight: 3}]->(Dee)\n");
+  Graph graph;
+  ASSERT_EQ(LoadFacts(facts, graph), absl::OkStatus());
+  EXPECT_EQ(Answers(graph,
+                    "MATCH p = (a {name: 'Ada'})-[:KNOWS* WSHORTEST(weight)]-"
+                    "(b {name: 'Dee'}) RETURN p, length(p), cost(p)"),
+            std::vector<std::string>{
+                "(Ada)-[:KNOWS {weight: 2}]->(Cy)-[:KNOWS {weight: 3}]->(Dee), "
+                "2, 5"});
 }
 
 }  // namespace

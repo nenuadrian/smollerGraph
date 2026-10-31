@@ -51,7 +51,20 @@ TEST(ParserTest, ReadsAShortestPath) {
   ASSERT_EQ(query->returns.size(), 2);
   EXPECT_EQ(query->returns[0].variable, "p");
   EXPECT_EQ(query->returns[0].key, "");
-  EXPECT_TRUE(query->returns[1].length);
+  EXPECT_EQ(query->returns[1].function, "length");
+}
+
+TEST(ParserTest, ReadsACheapestPath) {
+  absl::StatusOr<Query> query = Parse(
+      "MATCH p = (a {name: 'Ada'})-[:KNOWS* WSHORTEST(weight)]-(b {name: "
+      "'Dee'}) RETURN p, cost(p)");
+  ASSERT_TRUE(query.ok()) << query.status();
+  EXPECT_EQ(query->path, "p");
+  EXPECT_FALSE(query->shortest);
+  ASSERT_EQ(query->relationships.size(), 1);
+  EXPECT_EQ(query->relationships[0].hops, kAnyHops);
+  EXPECT_EQ(query->relationships[0].weight, "weight");
+  EXPECT_EQ(query->returns[1].function, "cost");
 }
 
 TEST(ParserTest, ReadsWhereAndProperties) {
@@ -79,8 +92,9 @@ TEST(ParserTest, ReadsKeywordsInAnyCase) {
 TEST(ParserTest, SaysWhatItExpected) {
   EXPECT_EQ(Parse("MATCH (a RETURN a.name").status().message(),
             "expected ) at 9, not RETURN");
-  EXPECT_EQ(Parse("MATCH p = (a)-[:EATS*]-(b) RETURN p").status().message(),
-            "expected shortestPath at 10, not (");
+  EXPECT_EQ(
+      Parse("MATCH p = (a)-[:EATS* WSHORTEST]-(b) RETURN p").status().message(),
+      "expected ( at 31, not ]");
   EXPECT_EQ(Parse("MATCH (a)<-[:EATS]->(b) RETURN b.name").status().message(),
             "expected ( at 19, not >");
   EXPECT_EQ(Parse("MATCH (a)-[:EATS*20]->(b) RETURN b.name").status().message(),

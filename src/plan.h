@@ -37,6 +37,9 @@ struct Step {
     // in slot `to`, along relationships of type `text`, and no row when
     // there's no path.
     kShortestPath,
+    // The same for a cheapest path, whose relationships' `weight` adds up to
+    // the least.
+    kCheapestPath,
   };
   Kind kind;
   int from = -1;
@@ -47,16 +50,18 @@ struct Step {
   Value value{};
   // Which of its node's relationships an expand or a path follows.
   Direction direction = Direction::kOut;
+  // The property a cheapest path adds up.
+  std::string weight{};
 };
 
 // A column of what a plan returns: its heading, such as b.name, p or
 // length(p), and the property of the node in a slot that it returns, or with
-// no slot, the row's path, or its length.
+// no slot, the row's path, or a function of it, its length or its cost.
 struct Column {
   std::string heading;
   int slot = -1;
   std::string key;
-  bool length = false;
+  std::string function;
 };
 
 // How to answer a query: where to start, and where to go from there.
@@ -80,8 +85,8 @@ absl::StatusOr<Plan> PlanQuery(const Query& query);
 std::string Explain(const Plan& plan);
 
 // A value a query returns, and the node it's a property of. A node without
-// the property returns Cypher's null, which is no value. A path, or its
-// length, comes with the path, and its first node.
+// the property returns Cypher's null, which is no value. A path, or a function
+// of it, comes with the path, and its first node.
 struct Cell {
   NodeId node;
   std::optional<Value> value;
