@@ -30,11 +30,13 @@ cmake --build build
 way, with a breadth-first search from both ends, which meet in the middle, and says how many nodes it reached and how many pages it read.
 
 `sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a
-label and properties to match, joined by relationships of one type that go right, `-[:EATS]->`, or
-left, `<-[:EATS]-`, for one hop or `*N`, then an optional `WHERE` of comparisons joined by `AND`, such as `b.weight_g < 1000`, and
-`RETURN [DISTINCT]` properties of its variables. The plan starts from the node that's cheapest to
+label and properties to match, joined by relationships of one type that go right, `-[:EATS]->`,
+left, `<-[:EATS]-`, or either way, `-[:EATS]-`, for one hop or `*N`, then an optional `WHERE` of
+comparisons joined by `AND`, such as `b.weight_g < 1000`, and `RETURN [DISTINCT]` properties of its
+variables. `MATCH p = shortestPath((a {name: 'Red fox'})-[:PARENT_TAXON*]-(b {name: 'Lion'}))`
+finds a shortest path between two nodes, which `RETURN p` returns, and `length(p)` its length. The plan starts from the node that's cheapest to
 find, by its name in the index, then by its label, and expands from it both ways along the pattern,
-and `EXPLAIN` in front shows it.
+or for a shortest path, finds both its ends, and `EXPLAIN` in front shows it.
 
 ## Mammals and birds from Wikidata
 

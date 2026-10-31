@@ -19,14 +19,19 @@ struct NodePattern {
   std::vector<Property> properties;
 };
 
+// The hops of a relationship written with a star and no number, such as
+// -[:KNOWS*]-, which stands for any number of them.
+inline constexpr int kAnyHops = 0;
+
 // A relationship from a node in a pattern to the next one, such as -[:EATS]->,
 // or -[:EATS*2]->, which is two of them in a row. One written <-[:EATS]- goes
-// the other way, from the next node to this one.
+// the other way, from the next node to this one, and one written -[:EATS]-,
+// with no arrow, goes either way.
 struct RelationshipPattern {
   std::string type;
   int hops = 1;
-  // Which way to follow it from the node before it: out, or in when it's
-  // written with its arrow on the left.
+  // Which way to follow it from the node before it: out, in when it's written
+  // with its arrow on the left, or both with no arrow.
   Direction direction = Direction::kOut;
 };
 
@@ -44,6 +49,15 @@ struct Comparison {
   Value value;
 };
 
+// What a query returns in a column: a variable's property, such as b.name,
+// or with no key, a path's variable, such as p, which returns the path, or
+// length(p), which returns how many relationships it has.
+struct ReturnItem {
+  std::string variable;
+  std::string key;
+  bool length = false;
+};
+
 // A query in our subset of Cypher, such as
 //   MATCH (a {name: 'Red fox'})-[:EATS]->(b) WHERE b.weight_g < 1000
 //   RETURN DISTINCT b.name
@@ -51,13 +65,16 @@ struct Comparison {
 // to node i + 1.
 struct Query {
   bool explain = false;
+  // The path's variable, for a pattern written as p = shortestPath(...),
+  // which asks for a shortest path between its two nodes.
+  std::string path;
   std::vector<NodePattern> nodes;
   std::vector<RelationshipPattern> relationships;
   // The comparisons in WHERE, joined by AND, so a row has to pass them all.
   std::vector<Comparison> where;
   bool distinct = false;
-  // The properties returned, in order.
-  std::vector<PropertyLookup> returns;
+  // What it returns, in order.
+  std::vector<ReturnItem> returns;
 };
 
 // Reads a query. Returns an error that says what's wrong and where, when it

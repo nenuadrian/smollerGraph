@@ -8,6 +8,7 @@
 #include "absl/status/statusor.h"
 #include "graph.h"
 #include "parser.h"
+#include "query.h"
 
 namespace smollergraph {
 
@@ -32,6 +33,10 @@ struct Step {
     kFilter,
     // The rows whose node in slot `from` has the label `text`.
     kHasLabel,
+    // For each row, a shortest path from the node in slot `from` to the node
+    // in slot `to`, along relationships of type `text`, and no row when
+    // there's no path.
+    kShortestPath,
   };
   Kind kind;
   int from = -1;
@@ -40,8 +45,18 @@ struct Step {
   // A filter's operator, and the value it compares with.
   std::string op = "=";
   Value value{};
-  // Which of its node's relationships an expand follows.
+  // Which of its node's relationships an expand or a path follows.
   Direction direction = Direction::kOut;
+};
+
+// A column of what a plan returns: its heading, such as b.name, p or
+// length(p), and the property of the node in a slot that it returns, or with
+// no slot, the row's path, or its length.
+struct Column {
+  std::string heading;
+  int slot = -1;
+  std::string key;
+  bool length = false;
 };
 
 // How to answer a query: where to start, and where to go from there.
@@ -50,27 +65,27 @@ struct Plan {
   // The pattern's variable for each slot, or nothing for a node it didn't
   // give one.
   std::vector<std::string> slots;
-  // The slots whose properties are returned, in order, the properties' keys,
-  // and their columns' headings.
-  std::vector<int> returns;
-  std::vector<std::string> keys;
-  std::vector<std::string> columns;
+  // What it returns, a column at a time, in order.
+  std::vector<Column> returns;
   bool distinct = false;
 };
 
 // Plans a query, starting from the node of its pattern that's cheapest to
-// find. Returns an error when the query compares or returns a variable its
-// pattern doesn't have, or gives two nodes one variable.
+// find, or for a shortest path, finding both its nodes, and then the path.
+// Returns an error when the query compares or returns a variable its pattern
+// doesn't have, gives two nodes one variable, or has a pattern it can't plan.
 absl::StatusOr<Plan> PlanQuery(const Query& query);
 
 // The plan's steps, a line each, in the order they run, as EXPLAIN shows them.
 std::string Explain(const Plan& plan);
 
 // A value a query returns, and the node it's a property of. A node without
-// the property returns Cypher's null, which is no value.
+// the property returns Cypher's null, which is no value. A path, or its
+// length, comes with the path, and its first node.
 struct Cell {
   NodeId node;
   std::optional<Value> value;
+  Path path;
 };
 
 // What a query returns: a row for each match of its pattern, with a cell for

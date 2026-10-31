@@ -45,12 +45,20 @@ class Parser {
   // What's wrong with the query, once a part has failed.
   const absl::Status& status() const { return status_; }
 
-  // query := [EXPLAIN] MATCH node (relationship node)*
+  // query := [EXPLAIN] MATCH (pattern | variable = shortestPath(pattern))
   //          [WHERE comparison (AND comparison)*]
-  //          RETURN [DISTINCT] lookup (, lookup)*
+  //          RETURN [DISTINCT] item (, item)*
+  // pattern := node (relationship node)*
   bool ParseQuery(Query& query) {
     query.explain = Keyword("EXPLAIN");
     if (!ExpectKeyword("MATCH")) return false;
+    // A word and an equals sign name the path that follows.
+    bool shortest = Peek().kind == TokenKind::kWord && IsSymbolAt(1, "=");
+    if (shortest) {
+      query.path = Next().text;
+      Next();
+      if (!ExpectKeyword("shortestPath") || !ExpectSymbol("(")) return false;
+    }
     NodePattern node;
     if (!ParseNode(node)) return false;
     query.nodes.push_back(node);
@@ -60,6 +68,7 @@ class Parser {
       query.relationships.push_back(relationship);
       query.nodes.push_back(node);
     }
+    if (shortest && !ExpectSymbol(")")) return false;
     if (Keyword("WHERE")) {
       do {
         Comparison comparison;
@@ -70,9 +79,9 @@ class Parser {
     if (!ExpectKeyword("RETURN")) return false;
     query.distinct = Keyword("DISTINCT");
     do {
-      PropertyLookup lookup;
-      if (!ParseLookup(lookup)) return false;
-      query.returns.push_back(std::move(lookup));
+      ReturnItem item;
+      if (!ParseReturnItem(item)) return false;
+      query.returns.push_back(std::move(item));
     } while (Symbol(","));
     if (Peek().kind != TokenKind::kEnd) return Fail("the end of the query");
     return true;
@@ -101,8 +110,8 @@ class Parser {
     return ExpectSymbol(")");
   }
 
-  // relationship := - [ : type [* hops] ] - >
-  //               | < - [ : type [* hops] ] -
+  // relationship := - [ : type [* [hops]] ] - [>]
+  //               | < - [ : type [* [hops]] ] -
   bool ParseRelationship(RelationshipPattern& relationship) {
     if (Symbol("<")) relationship.direction = Direction::kIn;
     if (!ExpectSymbol("-") || !ExpectSymbol("[") || !ExpectSymbol(":")) {
@@ -114,15 +123,23 @@ class Parser {
       const std::string& text = Peek().text;
       auto [end, failed] = std::from_chars(
           text.data(), text.data() + text.size(), relationship.hops);
-      if (Peek().kind != TokenKind::kNumber || failed != std::errc() ||
-          relationship.hops < 1 || relationship.hops > kMaxHops) {
+      // A star with no number after it stands for any number of hops.
+      if (Peek().kind != TokenKind::kNumber) {
+        relationship.hops = kAnyHops;
+      } else if (failed != std::errc() || relationship.hops < 1 ||
+                 relationship.hops > kMaxHops) {
         return Fail("a number of hops from 1 to " + std::to_string(kMaxHops));
+      } else {
+        Next();
       }
-      Next();
     }
     if (!ExpectSymbol("]") || !ExpectSymbol("-")) return false;
-    // An arrow on the left needs none on the right.
-    return relationship.direction == Direction::kIn || ExpectSymbol(">");
+    // An arrow on the left needs none on the right, and a relationship with
+    // no arrow at all goes either way.
+    if (relationship.direction == Direction::kOut && !Symbol(">")) {
+      relationship.direction = Direction::kBoth;
+    }
+    return true;
   }
 
   // properties := { key : value (, key : value)* }
@@ -178,11 +195,34 @@ class Parser {
     return true;
   }
 
+  // item := variable [. key] | length ( variable )
+  bool ParseReturnItem(ReturnItem& item) {
+    if (Peek().kind == TokenKind::kWord && IsSymbolAt(1, "(")) {
+      if (!ExpectKeyword("length") || !ExpectSymbol("(")) return false;
+      item.length = true;
+      if (Peek().kind != TokenKind::kWord) return Fail("a variable");
+      item.variable = Next().text;
+      return ExpectSymbol(")");
+    }
+    if (Peek().kind != TokenKind::kWord) return Fail("a variable");
+    item.variable = Next().text;
+    // A variable on its own returns all of it, which our subset allows for a
+    // path, as a path has no properties.
+    if (!Symbol(".")) return true;
+    if (Peek().kind != TokenKind::kWord) return Fail("a key");
+    item.key = Next().text;
+    return true;
+  }
+
   const Token& Peek() const { return tokens_[next_]; }
   const Token& Next() { return tokens_[next_++]; }
 
-  bool IsSymbol(std::string_view symbol) const {
-    return Peek().kind == TokenKind::kSymbol && Peek().text == symbol;
+  bool IsSymbol(std::string_view symbol) const { return IsSymbolAt(0, symbol); }
+  // Whether the token `ahead` of the next one is this symbol. The last token
+  // is the end, so looking past it finds the end.
+  bool IsSymbolAt(size_t ahead, std::string_view symbol) const {
+    const Token& token = tokens_[std::min(next_ + ahead, tokens_.size() - 1)];
+    return token.kind == TokenKind::kSymbol && token.text == symbol;
   }
   // Reads a symbol, if it's the next token.
   bool Symbol(std::string_view symbol) {

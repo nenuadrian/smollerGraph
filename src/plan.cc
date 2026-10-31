@@ -78,6 +78,38 @@ int CostToFind(const NodePattern& node) {
   return 2;
 }
 
+// Adds a step that finds a node of the pattern, in a slot of its own: a seek
+// in the index for a node with a name, a scan of a label for a node with a
+// label, and otherwise a scan of all the nodes. Then come the filters on it.
+// Returns its slot.
+int AddFind(const Query& query, const NodePattern& node, Plan& plan) {
+  plan.slots.push_back(node.variable);
+  int slot = static_cast<int>(plan.slots.size()) - 1;
+  if (std::optional<std::string> name = NameOf(node)) {
+    plan.steps.push_back({Step::Kind::kNodeIndexSeek, -1, slot, *name});
+  } else if (!node.label.empty()) {
+    plan.steps.push_back({Step::Kind::kNodeByLabelScan, -1, slot, node.label});
+  } else {
+    plan.steps.push_back({Step::Kind::kAllNodesScan, -1, slot, ""});
+  }
+  AddFilters(query, node, slot, plan.steps.back().kind, plan);
+  return slot;
+}
+
+// A relationship as Cypher writes it, with its arrow pointing the way it's
+// followed, or with no arrow when it's followed both ways.
+std::string Arrow(Direction direction, std::string_view type) {
+  return absl::StrCat(direction == Direction::kIn ? "<-[:" : "-[:", type,
+                      direction == Direction::kOut ? "]->" : "]-");
+}
+
+// A row: a node in each of the plan's slots, and the path the plan found, for
+// a plan that finds one.
+struct Row {
+  std::vector<NodeId> nodes;
+  Path path;
+};
+
 // Adds the expands from the node in `slot` to the pattern's `node`, along
 // `relationship` in `direction`, then the filters on `node`, and returns the
 // slot it ends up in.
@@ -117,6 +149,41 @@ bool Compare(const std::optional<Value>& property, const std::string& op,
   return order >= 0;
 }
 
+// Adds a column to the plan for each item the query returns, and returns the
+// plan, or an error for an item it can't return.
+absl::StatusOr<Plan> AddReturns(const Query& query, Plan plan) {
+  plan.distinct = query.distinct;
+  for (const ReturnItem& item : query.returns) {
+    if (!query.path.empty() && item.variable == query.path) {
+      // A path has no properties, so it's returned whole, or as its length.
+      if (!item.key.empty()) {
+        return absl::InvalidArgumentError(
+            absl::StrCat("the path ", item.variable, " has no properties"));
+      }
+      plan.returns.push_back(
+          {.heading = item.length ? absl::StrCat("length(", item.variable, ")")
+                                  : item.variable,
+           .length = item.length});
+      continue;
+    }
+    auto found = std::find(plan.slots.begin(), plan.slots.end(), item.variable);
+    if (found == plan.slots.end()) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("there's no variable called ", item.variable));
+    }
+    if (item.key.empty() || item.length) {
+      return absl::InvalidArgumentError(
+          absl::StrCat("a node is returned by its properties, such as ",
+                       item.variable, ".name"));
+    }
+    plan.returns.push_back(
+        {.heading = absl::StrCat(item.variable, ".", item.key),
+         .slot = static_cast<int>(found - plan.slots.begin()),
+         .key = item.key});
+  }
+  return plan;
+}
+
 }  // namespace
 
 std::string ValueText(const Value& value) {
@@ -149,23 +216,39 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
     }
   }
 
+  for (const RelationshipPattern& relationship : query.relationships) {
+    if (relationship.hops == kAnyHops && query.path.empty()) {
+      return absl::InvalidArgumentError(
+          "a relationship with any number of hops needs shortestPath");
+    }
+  }
+
+  if (!query.path.empty()) {
+    if (query.relationships.size() != 1 ||
+        query.relationships[0].hops != kAnyHops) {
+      return absl::InvalidArgumentError(
+          "shortestPath needs two nodes, with a relationship of any number of "
+          "hops between them, such as (a)-[:KNOWS*]-(b)");
+    }
+    // Both ends are found, each in the way that's cheapest for it, and then
+    // the path between them.
+    int from = AddFind(query, query.nodes[0], plan);
+    int to = AddFind(query, query.nodes[1], plan);
+    plan.steps.push_back({.kind = Step::Kind::kShortestPath,
+                          .from = from,
+                          .to = to,
+                          .text = query.relationships[0].type,
+                          .direction = query.relationships[0].direction});
+    return AddReturns(query, std::move(plan));
+  }
+
   // The plan starts from the node of the pattern that's cheapest to find, the
   // first of them when there's a tie.
   size_t first = 0;
   for (size_t i = 1; i < query.nodes.size(); ++i) {
     if (CostToFind(query.nodes[i]) < CostToFind(query.nodes[first])) first = i;
   }
-  const NodePattern& start = query.nodes[first];
-  plan.slots.push_back(start.variable);
-  std::optional<std::string> name = NameOf(start);
-  if (name) {
-    plan.steps.push_back({Step::Kind::kNodeIndexSeek, -1, 0, *name});
-  } else if (!start.label.empty()) {
-    plan.steps.push_back({Step::Kind::kNodeByLabelScan, -1, 0, start.label});
-  } else {
-    plan.steps.push_back({Step::Kind::kAllNodesScan, -1, 0, ""});
-  }
-  AddFilters(query, start, 0, plan.steps.back().kind, plan);
+  AddFind(query, query.nodes[first], plan);
   // From the start, it expands to the pattern's right end, then to its left
   // end, following each relationship there from the node after it, so the
   // other way.
@@ -181,79 +264,88 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
     slot = AddExpands(query, relationship, Reversed(relationship.direction),
                       query.nodes[i - 1], slot, plan);
   }
-
-  plan.distinct = query.distinct;
-  for (const PropertyLookup& lookup : query.returns) {
-    auto found =
-        std::find(plan.slots.begin(), plan.slots.end(), lookup.variable);
-    if (found == plan.slots.end()) {
-      return absl::InvalidArgumentError(
-          absl::StrCat("there's no variable called ", lookup.variable));
-    }
-    plan.returns.push_back(static_cast<int>(found - plan.slots.begin()));
-    plan.keys.push_back(lookup.key);
-    plan.columns.push_back(absl::StrCat(lookup.variable, ".", lookup.key));
-  }
-  return plan;
+  return AddReturns(query, std::move(plan));
 }
 
 Result Run(const Plan& plan, const Graph& graph) {
   // A single row to begin with, with its slots still to fill.
-  std::vector<std::vector<NodeId>> rows = {
-      std::vector<NodeId>(plan.slots.size())};
+  std::vector<Row> rows = {{std::vector<NodeId>(plan.slots.size()), {}}};
   for (const Step& step : plan.steps) {
-    std::vector<std::vector<NodeId>> next;
-    for (const std::vector<NodeId>& row : rows) {
+    std::vector<Row> next;
+    for (const Row& row : rows) {
       switch (step.kind) {
         case Step::Kind::kNodeIndexSeek:
           if (std::optional<NodeId> node = graph.Find(step.text)) {
             next.push_back(row);
-            next.back()[step.to] = *node;
+            next.back().nodes[step.to] = *node;
           }
           break;
         case Step::Kind::kAllNodesScan:
           for (NodeId node = 0; node < graph.node_count(); ++node) {
             next.push_back(row);
-            next.back()[step.to] = node;
+            next.back().nodes[step.to] = node;
           }
           break;
         case Step::Kind::kNodeByLabelScan:
           for (NodeId node = 0; node < graph.node_count(); ++node) {
             if (graph.label(node) != step.text) continue;
             next.push_back(row);
-            next.back()[step.to] = node;
+            next.back().nodes[step.to] = node;
           }
           break;
         case Step::Kind::kExpand:
-          for (NodeId node :
-               graph.Neighbours(row[step.from], step.text, step.direction)) {
+          for (NodeId node : graph.Neighbours(row.nodes[step.from], step.text,
+                                              step.direction)) {
             next.push_back(row);
-            next.back()[step.to] = node;
+            next.back().nodes[step.to] = node;
           }
           break;
         case Step::Kind::kFilter:
-          if (Compare(graph.FindProperty(row[step.from], step.text), step.op,
-                      step.value)) {
+          if (Compare(graph.FindProperty(row.nodes[step.from], step.text),
+                      step.op, step.value)) {
             next.push_back(row);
           }
           break;
         case Step::Kind::kHasLabel:
-          if (graph.label(row[step.from]) == step.text) next.push_back(row);
+          if (graph.label(row.nodes[step.from]) == step.text) {
+            next.push_back(row);
+          }
           break;
+        case Step::Kind::kShortestPath: {
+          PathSearch search =
+              ShortestPath(graph, row.nodes[step.from], row.nodes[step.to],
+                           step.text, step.direction);
+          if (search.path) {
+            next.push_back(row);
+            next.back().path = *std::move(search.path);
+          }
+          break;
+        }
       }
     }
     rows = std::move(next);
   }
 
   Result result;
-  result.columns = plan.columns;
+  for (const Column& column : plan.returns) {
+    result.columns.push_back(column.heading);
+  }
   std::set<std::vector<std::optional<Value>>> seen;
-  for (const std::vector<NodeId>& row : rows) {
+  for (const Row& row : rows) {
     std::vector<Cell> cells;
     std::vector<std::optional<Value>> values;
-    for (size_t i = 0; i < plan.returns.size(); ++i) {
-      NodeId node = row[plan.returns[i]];
-      cells.push_back({node, graph.FindProperty(node, plan.keys[i])});
+    for (const Column& column : plan.returns) {
+      if (column.slot >= 0) {
+        NodeId node = row.nodes[column.slot];
+        cells.push_back(
+            {.node = node, .value = graph.FindProperty(node, column.key)});
+      } else if (column.length) {
+        int64_t length = row.path.relationships.size();
+        cells.push_back({row.path.nodes[0], length, row.path});
+      } else {
+        cells.push_back(
+            {row.path.nodes[0], PathText(graph, row.path), row.path});
+      }
       values.push_back(cells.back().value);
     }
     // DISTINCT keeps the first of rows that return the same values.
@@ -279,14 +371,11 @@ std::string Explain(const Plan& plan) {
         absl::StrAppend(&text, "NodeByLabelScan (", SlotName(plan, step.to),
                         ":", step.text, ")\n");
         break;
-      case Step::Kind::kExpand: {
-        // Its arrow points the way the relationships go.
-        bool out = step.direction == Direction::kOut;
-        absl::StrAppend(&text, "Expand (", SlotName(plan, step.from),
-                        out ? ")-[:" : ")<-[:", step.text, out ? "]->(" : "]-(",
+      case Step::Kind::kExpand:
+        absl::StrAppend(&text, "Expand (", SlotName(plan, step.from), ")",
+                        Arrow(step.direction, step.text), "(",
                         SlotName(plan, step.to), ")\n");
         break;
-      }
       case Step::Kind::kFilter:
         absl::StrAppend(&text, "Filter ", SlotName(plan, step.from), ".",
                         step.text, " ", step.op, " ", Literal(step.value),
@@ -296,10 +385,19 @@ std::string Explain(const Plan& plan) {
         absl::StrAppend(&text, "Filter ", SlotName(plan, step.from), ":",
                         step.text, "\n");
         break;
+      case Step::Kind::kShortestPath:
+        // A star after the type, as the path has any number of hops.
+        absl::StrAppend(&text, "ShortestPath (", SlotName(plan, step.from), ")",
+                        Arrow(step.direction, step.text + "*"), "(",
+                        SlotName(plan, step.to), ")\n");
+        break;
     }
   }
+  std::vector<std::string> headings;
+  headings.reserve(plan.returns.size());
+  for (const Column& column : plan.returns) headings.push_back(column.heading);
   absl::StrAppend(&text, plan.distinct ? "Return DISTINCT " : "Return ",
-                  absl::StrJoin(plan.columns, ", "), "\n");
+                  absl::StrJoin(headings, ", "), "\n");
   return text;
 }
 

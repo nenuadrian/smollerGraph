@@ -84,6 +84,17 @@ TEST(PlanTest, ScansALabelOrFiltersOnIt) {
             "Return a.name\n");
 }
 
+TEST(PlanTest, FindsBothEndsOfAShortestPath) {
+  EXPECT_EQ(Explained("MATCH p = shortestPath((a {name: 'Tawny owl'})"
+                      "-[:EATS*]-(b:Animal)) RETURN b.name, length(p)"),
+            "NodeIndexSeek (a {name: 'Tawny owl'})\n"
+            "NodeByLabelScan (b:Animal)\n"
+            "ShortestPath (a)-[:EATS*]-(b)\n"
+            "Return b.name, length(p)\n");
+  EXPECT_EQ(Explained("MATCH (a)-[:EATS*]->(b) RETURN b.name"),
+            "a relationship with any number of hops needs shortestPath");
+}
+
 TEST(PlanTest, RefusesVariablesItCannotPlan) {
   EXPECT_EQ(Explained("MATCH (a) RETURN b.name"),
             "there's no variable called b");
@@ -161,6 +172,29 @@ TEST_F(RunTest, StartsInTheMiddle) {
                     "MATCH (a)-[:EATS]->(m {name: 'Field mouse'})-[:EATS]->(w) "
                     "RETURN a.name, w.name"),
             (std::vector<std::string>{"Red fox, Wheat", "Tawny owl, Wheat"}));
+}
+
+TEST_F(RunTest, FollowsARelationshipEitherWay) {
+  // What the field mouse eats, then what eats it.
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (m {name: 'Field mouse'})-[:EATS]-(b) "
+                    "RETURN b.name"),
+            (std::vector<std::string>{"Wheat", "Red fox", "Tawny owl"}));
+}
+
+TEST_F(RunTest, FindsAShortestPath) {
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH p = shortestPath((a {name: 'Tawny owl'})-[:EATS*]-"
+                    "(b {name: 'Rabbit'})) RETURN p, length(p)"),
+            std::vector<std::string>{
+                "(Tawny owl)-[:EATS]->(Field mouse)<-[:EATS]-(Red fox)"
+                "-[:EATS]->(Rabbit), 3"});
+  // Following the arrows, there's no path from the owl to the rabbit, so
+  // there's no row.
+  EXPECT_TRUE(Answers(graph_,
+                      "MATCH p = shortestPath((a {name: 'Tawny owl'})"
+                      "-[:EATS*]->(b {name: 'Rabbit'})) RETURN p")
+                  .empty());
 }
 
 TEST_F(RunTest, FiltersALaterNodeByName) {
