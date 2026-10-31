@@ -106,5 +106,32 @@ TEST(QueryJsonTest, AnswersWithRowsOrAPlan) {
       QueryJson(graph, "MATCH (a RETURN a.name").status()));
 }
 
+TEST(QueryJsonTest, DrawsEachNodeOfAPath) {
+  Graph graph;
+  NodeId fox = graph.AddNode("Red fox");
+  NodeId mouse = graph.AddNode("Field mouse");
+  graph.AddRelationship(fox, "EATS", graph.AddNode("Rabbit"));
+  graph.AddRelationship(fox, "EATS", mouse);
+  graph.AddRelationship(graph.AddNode("Tawny owl"), "EATS", mouse);
+  absl::StatusOr<std::string> path =
+      QueryJson(graph,
+                "MATCH p = shortestPath((a {name: 'Tawny owl'})-[:EATS*]-"
+                "(b {name: 'Rabbit'})) RETURN length(p)");
+  ASSERT_TRUE(path.ok()) << path.status();
+  // The row has the path's length, and the page draws its four nodes, and its
+  // three relationships.
+  EXPECT_EQ(WithoutTime(*path),
+            R"json("pages": 0, "count": 1, "columns": ["length(p)"], )json"
+            R"("rows": [[{"id": 3, "value": 3}]], )"
+            R"("nodes": [{"id": 3, "name": "Tawny owl", "label": ""}, )"
+            R"({"id": 1, "name": "Field mouse", "label": ""}, )"
+            R"({"id": 0, "name": "Red fox", "label": ""}, )"
+            R"({"id": 2, "name": "Rabbit", "label": ""}], )"
+            R"("relationships": [{"id": 2, "from": 3, "to": 1, )"
+            R"("type": "EATS"}, {"id": 1, "from": 0, "to": 1, )"
+            R"("type": "EATS"}, {"id": 0, "from": 0, "to": 2, )"
+            R"("type": "EATS"}]})");
+}
+
 }  // namespace
 }  // namespace smollergraph

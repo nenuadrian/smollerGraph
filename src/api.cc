@@ -189,13 +189,18 @@ absl::StatusOr<std::string> QueryJson(const Graph& graph,
   }
 
   // The nodes the rows return, each once, in the order they come, for the page
-  // to draw, with the relationships from one of them to another.
+  // to draw, with the relationships from one of them to another. A path draws
+  // each of its nodes, so the relationships between them draw the path.
   std::vector<NodeId> drawn;
   std::unordered_set<NodeId> seen;
   for (const std::vector<Cell>& row : result.rows) {
     for (const Cell& cell : row) {
-      if (drawn.size() < kMaxDrawn && seen.insert(cell.node).second) {
-        drawn.push_back(cell.node);
+      std::vector<NodeId> nodes = cell.path.nodes;
+      if (nodes.empty()) nodes.push_back(cell.node);
+      for (NodeId node : nodes) {
+        if (drawn.size() < kMaxDrawn && seen.insert(node).second) {
+          drawn.push_back(node);
+        }
       }
     }
   }

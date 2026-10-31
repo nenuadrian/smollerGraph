@@ -32,8 +32,9 @@ absl::StatusOr<std::string> NodeJson(const Graph& graph, std::string_view id);
 
 // Parses, plans and runs a query in our subset of Cypher, from a request. It
 // answers with the columns and up to kMaxRows of the rows, each value with the
-// id of its node, and the nodes the rows return, up to kMaxDrawn of them, with
-// the relationships between them, for the page to draw. It says how long the
+// id of its node, and the nodes the rows return, a path's nodes among them, up
+// to kMaxDrawn of them, with the relationships between them, for the page to
+// draw. It says how long the
 // query took on the server, and how many pages it read. After EXPLAIN, it
 // answers with the plan, and it says what's wrong with a query it can't run.
 inline constexpr size_t kMaxRows = 1000;
