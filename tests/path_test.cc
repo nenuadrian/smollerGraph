@@ -53,12 +53,12 @@ TEST_F(PathTest, SaysHowFarItSearched) {
                    "EATS", Direction::kBoth);
   ASSERT_TRUE(search.path);
   EXPECT_EQ(PathText(graph_, *search.path), "(Red fox)");
-  // No EATS reaches the meadow, so the search goes through all six nodes
-  // that EATS joins to the fox before it gives up.
+  // No EATS reaches the meadow, so the side that starts from it runs out after
+  // a hop, with the fox's side at its two meals, four nodes in all.
   search = ShortestPath(graph_, *graph_.Find("Red fox"), *graph_.Find("Meadow"),
                         "EATS", Direction::kBoth);
   EXPECT_FALSE(search.path);
-  EXPECT_EQ(search.reached, 6);
+  EXPECT_EQ(search.reached, 4);
 }
 
 }  // namespace

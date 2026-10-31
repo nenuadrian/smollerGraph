@@ -78,10 +78,6 @@ int CostToFind(const NodePattern& node) {
   return 2;
 }
 
-Direction Reversed(Direction direction) {
-  return direction == Direction::kOut ? Direction::kIn : Direction::kOut;
-}
-
 // Adds the expands from the node in `slot` to the pattern's `node`, along
 // `relationship` in `direction`, then the filters on `node`, and returns the
 // slot it ends up in.

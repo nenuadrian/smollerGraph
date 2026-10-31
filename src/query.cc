@@ -30,6 +30,32 @@ Path PathTo(const Parents& parents, NodeId node) {
   return path;
 }
 
+// One end of a search from both ends: the direction it follows relationships
+// in, each node it has reached, with its parent, and the nodes it reached last,
+// which it goes on from.
+struct Side {
+  Direction direction;
+  Parents parents;
+  std::vector<NodeId> frontier;
+};
+
+// Takes `side` a hop further, and returns the first node it reaches that the
+// other side has reached too, if there's one, where the two searches meet.
+std::optional<NodeId> Expand(const Graph& graph, std::string_view type,
+                             Side& side, const Side& other) {
+  std::vector<NodeId> next;
+  for (NodeId node : side.frontier) {
+    for (Hop hop : graph.Hops(node, type, side.direction)) {
+      Hop parent = {hop.relationship, node};
+      if (!side.parents.try_emplace(hop.node, parent).second) continue;
+      if (other.parents.contains(hop.node)) return hop.node;
+      next.push_back(hop.node);
+    }
+  }
+  side.frontier = std::move(next);
+  return std::nullopt;
+}
+
 }  // namespace
 
 std::vector<NodeId> Walk(const Graph& graph, NodeId start,
@@ -59,25 +85,30 @@ std::vector<std::vector<NodeId>> WalkHops(const Graph& graph, NodeId start,
 PathSearch ShortestPath(const Graph& graph, NodeId from, NodeId to,
                         std::string_view type, Direction direction) {
   if (from == to) return {Path{{from}, {}}, 1};
-  Parents parents = {{from, {kNoRelationship, from}}};
-  // A breadth-first search: the nodes one hop away, then the nodes one hop
-  // further, and so on, so the first time it reaches `to`, it's by a path with
-  // as few hops as any.
-  std::vector<NodeId> frontier = {from};
-  while (!frontier.empty()) {
-    std::vector<NodeId> next;
-    for (NodeId node : frontier) {
-      for (Hop hop : graph.Hops(node, type, direction)) {
-        Hop parent = {hop.relationship, node};
-        // A node reached already was reached by a path as short, or shorter.
-        if (!parents.try_emplace(hop.node, parent).second) continue;
-        if (hop.node == to) return {PathTo(parents, to), parents.size()};
-        next.push_back(hop.node);
-      }
-    }
-    frontier = std::move(next);
+  // Two breadth-first searches, one from each end, each a hop at a time, until
+  // they meet. The one from `to` follows the relationships the other way, as
+  // it walks the path backwards.
+  Side start = {direction, {{from, {kNoRelationship, from}}}, {from}};
+  Side end = {Reversed(direction), {{to, {kNoRelationship, to}}}, {to}};
+  while (!start.frontier.empty() && !end.frontier.empty()) {
+    // The side with fewer nodes to go on from takes the next hop, as it's
+    // likely to read fewer relationships.
+    bool forwards = start.frontier.size() <= end.frontier.size();
+    std::optional<NodeId> met = forwards ? Expand(graph, type, start, end)
+                                         : Expand(graph, type, end, start);
+    if (!met) continue;
+    // The start's half of the path runs to where they met, and the end's half
+    // runs from the end to there, so it's added backwards.
+    Path path = PathTo(start.parents, *met);
+    Path back = PathTo(end.parents, *met);
+    path.nodes.insert(path.nodes.end(), back.nodes.rbegin() + 1,
+                      back.nodes.rend());
+    path.relationships.insert(path.relationships.end(),
+                              back.relationships.rbegin(),
+                              back.relationships.rend());
+    return {path, start.parents.size() + end.parents.size() - 1};
   }
-  return {std::nullopt, parents.size()};
+  return {std::nullopt, start.parents.size() + end.parents.size()};
 }
 
 std::string PathText(const Graph& graph, const Path& path) {

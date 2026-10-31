@@ -70,6 +70,14 @@ static_assert(sizeof(PropertyRecord) == 64);
 // that end at it, or both.
 enum class Direction { kOut, kIn, kBoth };
 
+// The direction to follow a relationship in from its other end: out becomes
+// in, in becomes out, and both stays both.
+inline Direction Reversed(Direction direction) {
+  if (direction == Direction::kOut) return Direction::kIn;
+  if (direction == Direction::kIn) return Direction::kOut;
+  return Direction::kBoth;
+}
+
 // A step from a node along one of its relationships: the relationship, and the
 // node at its other end.
 struct Hop {
