@@ -156,7 +156,17 @@ std::optional<Value> Graph::FindProperty(NodeId node,
                                          std::string_view key) const {
   NodeRecord record = nodes_.Read(node);
   if (key == "name") return std::string(record.name);
-  PropertyId id = record.first_property;
+  return Lookup(record.first_property, key);
+}
+
+std::optional<Value> Graph::FindRelationshipProperty(
+    RelationshipId relationship, std::string_view key) const {
+  return Lookup(relationships_.Read(relationship).first_property, key);
+}
+
+std::optional<Value> Graph::Lookup(PropertyId first,
+                                   std::string_view key) const {
+  PropertyId id = first;
   while (id != kNoProperty) {
     PropertyRecord property = properties_.Read(id);
     if (key == property.key) return ValueOf(property);

@@ -1,10 +1,13 @@
 // Writes a made-up social graph for benchmarks: people who each know a number
-// of others, picked at random, as smollerGraph facts and as CSV files that
-// Neo4j and Kùzu can import, along with the people to start queries from.
+// of others, picked at random, as smollerGraph facts, with a weight on each
+// friendship, and as CSV files that Neo4j and Kùzu can import, along with the
+// people to start queries from.
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <cerrno>
 #include <charconv>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <fstream>
@@ -53,6 +56,9 @@ int main(int argc, char** argv) {
   // A fixed seed, and the generator's raw numbers, which the standard defines
   // to the bit, so every run on every machine writes the same graph.
   std::mt19937 random(42);
+  // The messages two friends have sent each other come from a generator of
+  // their own, so the people each person knows are the ones they knew.
+  std::mt19937 messages(7);
   for (uint32_t i = 1; i <= people; ++i) {
     for (uint32_t f = 0; f < friends; ++f) {
       // Nobody is their own friend, so a walk never uses one relationship
@@ -61,7 +67,13 @@ int main(int argc, char** argv) {
       do {
         other = 1 + random() % people;
       } while (other == i && people > 1);
-      facts << "(Person " << i << ")-[:KNOWS]->(Person " << other << ")\n";
+      uint32_t sent = 1 + messages() % 1600;
+      // The weight that LDBC's Social Network Benchmark gives a friendship in
+      // its cheapest path question: the more messages, the cheaper, from 39
+      // for a single one down to 1.
+      int64_t weight = std::max(std::llround(40 - std::sqrt(sent)), 1LL);
+      facts << "(Person " << i << ")-[:KNOWS {weight: " << weight
+            << "}]->(Person " << other << ")\n";
       relationships << "Person " << i << ",Person " << other << '\n';
     }
   }

@@ -89,6 +89,11 @@ ctest --test-dir build --output-on-failure
 
 ## Benchmarks
 
+`make_friends` writes a social graph of made-up people, who each know ten others, with a weight on
+each friendship in the facts, as LDBC's Social Network Benchmark weighs them in its cheapest path
+question: `max(round(40 - sqrt(messages)), 1)`, for a number of messages the two have sent each
+other, from 1 to 1,600.
+
 `bench/compare.py` loads a generated social graph into smollerGraph, Kùzu and Neo4j (in Docker),
 and asks each of them two questions in Cypher from a thousand people, three times over: how many
 people are two hops of KNOWS away, following them out of a person, and following them in. `sg bench`

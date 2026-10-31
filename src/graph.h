@@ -141,6 +141,9 @@ class Graph {
 
   // Returns a node's property, if it has one. Its name is a property too.
   std::optional<Value> FindProperty(NodeId node, std::string_view key) const;
+  // Returns a relationship's property, if it has one, such as its weight.
+  std::optional<Value> FindRelationshipProperty(RelationshipId relationship,
+                                                std::string_view key) const;
   // Returns the properties of a node or a relationship, in the order they
   // were first set.
   std::vector<Property> Properties(NodeId node) const;
@@ -196,6 +199,9 @@ class Graph {
   // chain doesn't have yet gets a record of its own, at the front.
   void Set(PropertyId& first, std::string_view key, const Value& value);
   std::vector<Property> Chain(PropertyId first) const;
+  // Returns the value of `key` in the chain of properties that starts at
+  // `first`, if the chain has it.
+  std::optional<Value> Lookup(PropertyId first, std::string_view key) const;
   // Adds the hops along the relationships of type `type` in the chain that
   // starts at `first`, out or in, in the order they were added.
   void Follow(RelationshipId first, bool out, TokenId type,

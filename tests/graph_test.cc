@@ -156,6 +156,9 @@ TEST(FactsTest, ReadsALabelAndPropertiesInBraces) {
   ASSERT_EQ(graph.RelationshipProperties(0).size(), 1);
   EXPECT_EQ(graph.RelationshipProperties(0)[0].value,
             Value(std::string("Wikipedia")));
+  EXPECT_EQ(graph.FindRelationshipProperty(0, "source"),
+            Value(std::string("Wikipedia")));
+  EXPECT_EQ(graph.FindRelationshipProperty(0, "weight"), std::nullopt);
 }
 
 TEST(FactsTest, StopsAtALineThatIsNotAFact) {
