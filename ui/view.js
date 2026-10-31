@@ -156,7 +156,7 @@ export class GraphView {
   // Paints a frame: the relationships first, as a path of lines and one of
   // arrowheads, then the nodes, a path for each label, as each path is one
   // call for the canvas to fill or stroke, however many shapes it holds. Then
-  // the names, when they can be read.
+  // the names, and the relationships' properties, when they can be read.
   draw() {
     const start = performance.now();
     const {context, canvas, transform} = this;
@@ -217,6 +217,17 @@ export class GraphView {
       for (const d of this.nodes) {
         context.strokeText(d.name, d.x, d.y + RADIUS + 14);
         context.fillText(d.name, d.x, d.y + RADIUS + 14);
+      }
+      // The values of a relationship's properties, such as its weight, at its
+      // middle, in the relationships' coral.
+      context.fillStyle = '#ff8c6b';
+      for (const d of this.links) {
+        const text = Object.values(d.properties ?? {}).join(', ');
+        if (!text) continue;
+        const x = (d.source.x + d.target.x) / 2;
+        const y = (d.source.y + d.target.y) / 2;
+        context.strokeText(text, x, y);
+        context.fillText(text, x, y);
       }
     }
     // A moving average of how long a frame takes to paint, for the status

@@ -167,10 +167,20 @@ async function expand(node) {
       [...outgoing, ...incoming].map(
           (d) => ({id: d.node, name: d.name, label: d.label})),
       [
-        ...outgoing.map(
-            (d) => ({id: d.id, from: node.id, to: d.node, type: d.type})),
-        ...incoming.map(
-            (d) => ({id: d.id, from: d.node, to: node.id, type: d.type})),
+        ...outgoing.map((d) => ({
+                          id: d.id,
+                          from: node.id,
+                          to: d.node,
+                          type: d.type,
+                          properties: d.properties,
+                        })),
+        ...incoming.map((d) => ({
+                          id: d.id,
+                          from: d.node,
+                          to: node.id,
+                          type: d.type,
+                          properties: d.properties,
+                        })),
       ],
       true);
   showLegend();

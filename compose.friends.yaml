@@ -1,0 +1,9 @@
+# The friends graph from the benchmarks, with a weight on each friendship, in
+# place of the mammals and birds: docker compose -f compose.yaml -f
+# compose.friends.yaml up, then open http://localhost:8474.
+services:
+  sg:
+    command: >-
+      sh -c "./build/make_friends 100000 10 bench/data && rm -rf friends.sg
+      && ./build/sg load friends.sg bench/data/friends.txt
+      && exec ./build/sg serve friends.sg 8474 0.0.0.0"

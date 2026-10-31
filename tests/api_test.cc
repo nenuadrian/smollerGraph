@@ -97,7 +97,7 @@ TEST(QueryJsonTest, AnswersWithRowsOrAPlan) {
             R"("nodes": [{"id": 1, "name": "Rabbit", "label": "Animal"}, )"
             R"({"id": 0, "name": "Red fox", "label": ""}], )"
             R"("relationships": [{"id": 0, "from": 0, "to": 1, )"
-            R"("type": "EATS"}]})");
+            R"("type": "EATS", "properties": {}}]})");
   absl::StatusOr<std::string> plan =
       QueryJson(graph, "EXPLAIN MATCH (a) RETURN a.name");
   ASSERT_TRUE(plan.ok()) << plan.status();
@@ -128,9 +128,10 @@ TEST(QueryJsonTest, DrawsEachNodeOfAPath) {
             R"({"id": 0, "name": "Red fox", "label": ""}, )"
             R"({"id": 2, "name": "Rabbit", "label": ""}], )"
             R"("relationships": [{"id": 2, "from": 3, "to": 1, )"
-            R"("type": "EATS"}, {"id": 1, "from": 0, "to": 1, )"
-            R"("type": "EATS"}, {"id": 0, "from": 0, "to": 2, )"
-            R"("type": "EATS"}]})");
+            R"("type": "EATS", "properties": {}}, {"id": 1, "from": 0, )"
+            R"("to": 1, "type": "EATS", "properties": {}}, {"id": 0, )"
+            R"("from": 0, "to": 2, )"
+            R"("type": "EATS", "properties": {}}]})");
 }
 
 }  // namespace

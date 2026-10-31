@@ -219,7 +219,9 @@ absl::StatusOr<std::string> QueryJson(const Graph& graph,
       if (seen.contains(relationship.to)) {
         absl::StrAppend(&json, first ? "" : ", ", "{\"id\": ", id,
                         ", \"from\": ", from, ", \"to\": ", relationship.to,
-                        ", \"type\": ", JsonString(graph.type(id)), "}");
+                        ", \"type\": ", JsonString(graph.type(id)),
+                        ", \"properties\": ",
+                        PropertiesJson(graph.RelationshipProperties(id)), "}");
         first = false;
       }
       id = relationship.next_out;

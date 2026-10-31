@@ -71,7 +71,8 @@ the other end of both:
 ```
 
 Then open http://localhost:8474. Or, with Docker, `docker compose up` loads the mammals and birds
-and serves them there.
+and serves them there, and `docker compose -f compose.yaml -f compose.friends.yaml up` serves the
+friends from the benchmarks, with their weights, which the page draws on each relationship.
 
 ## Deploying
 
