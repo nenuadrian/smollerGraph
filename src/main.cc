@@ -15,6 +15,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
 #include "embed.h"
+#include "export.h"
 #include "facts.h"
 #include "graph.h"
 #include "parser.h"
@@ -34,6 +35,7 @@ int Usage() {
          "[weight key]\n"
          "       sg embed <graph folder> <relationship type>\n"
          "       sg similar <graph folder> <name> <k>\n"
+         "       sg export <graph folder> <folder>\n"
          "       sg bench <graph folder> <starts file> <query with $name>\n"
          "       sg serve <graph folder> <port> [address]\n"
          "       sg query <graph folder> <query>\n";
@@ -168,6 +170,21 @@ int Similar(const smollergraph::Graph& graph, const char* name,
   return 0;
 }
 
+// Writes the graph into the folder at `path`, as sg export, for programs that
+// read it, such as a script that trains a model on it.
+int ExportTo(const smollergraph::Graph& graph, const char* path) {
+  Clock::time_point begin = Clock::now();
+  if (absl::Status status = smollergraph::Export(graph, path); !status.ok()) {
+    std::cerr << "sg: " << status.message() << '\n';
+    return 1;
+  }
+  std::chrono::duration<double, std::milli> took = Clock::now() - begin;
+  std::cout << graph.node_count() << " nodes and " << graph.relationship_count()
+            << " relationships, in " << std::fixed << std::setprecision(1)
+            << took.count() << " ms\n";
+  return 0;
+}
+
 // Parses, plans and runs a query, and returns how many rows it returned.
 absl::StatusOr<size_t> CountRows(const smollergraph::Graph& graph,
                                  std::string_view text) {
@@ -293,11 +310,12 @@ int main(int argc, char** argv) {
   bool path = command == "path" && (argc == 6 || argc == 7);
   bool embed = command == "embed" && argc == 4;
   bool similar = command == "similar" && argc == 5;
+  bool to_folder = command == "export" && argc == 4;
   bool bench = command == "bench" && argc == 5;
   bool serve = command == "serve" && (argc == 4 || argc == 5);
   bool query = command == "query" && argc == 4;
-  if (!load && !walk && !path && !embed && !similar && !bench && !serve &&
-      !query) {
+  if (!load && !walk && !path && !embed && !similar && !to_folder && !bench &&
+      !serve && !query) {
     return Usage();
   }
 
@@ -317,6 +335,7 @@ int main(int argc, char** argv) {
   }
   if (embed) return Embed(graph, argv[3]);
   if (similar) return Similar(graph, argv[3], argv[4]);
+  if (to_folder) return ExportTo(graph, argv[3]);
   if (serve) return Serve(graph, argv[3], argc == 5 ? argv[4] : "127.0.0.1");
   if (query) return RunQuery(graph, argv[3]);
   return Bench(graph, argv[3], argv[4], opened.count());

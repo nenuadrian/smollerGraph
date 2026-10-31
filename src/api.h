@@ -3,6 +3,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "absl/status/statusor.h"
 #include "graph.h"
@@ -15,6 +16,9 @@ namespace smollergraph {
 // Returns `text` as a JSON string: in quotes, with quotes, backslashes and
 // control characters escaped.
 std::string JsonString(std::string_view text);
+
+// Returns properties as a JSON object, with a field for each key.
+std::string PropertiesJson(const std::vector<Property>& properties);
 
 // Returns an error's message as JSON, for the UI to show.
 std::string ErrorJson(std::string_view message);

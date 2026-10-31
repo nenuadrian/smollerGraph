@@ -49,16 +49,6 @@ std::string ValueJson(const std::optional<Value>& value) {
   return JsonString(std::get<std::string>(*value));
 }
 
-// Properties as a JSON object, with a field for each key.
-std::string PropertiesJson(const std::vector<Property>& properties) {
-  std::string json = "{";
-  for (size_t i = 0; i < properties.size(); ++i) {
-    absl::StrAppend(&json, i > 0 ? ", " : "", JsonString(properties[i].key),
-                    ": ", ValueJson(properties[i].value));
-  }
-  return json + "}";
-}
-
 // A chain of relationships as JSON, from its first to its last, which is the
 // order they're kept in: newest first. Each has its type, its properties, the
 // node at its other end and where it's kept. The chain out goes on to each
@@ -112,6 +102,15 @@ std::string JsonString(std::string_view text) {
     }
   }
   return json + '"';
+}
+
+std::string PropertiesJson(const std::vector<Property>& properties) {
+  std::string json = "{";
+  for (size_t i = 0; i < properties.size(); ++i) {
+    absl::StrAppend(&json, i > 0 ? ", " : "", JsonString(properties[i].key),
+                    ": ", ValueJson(properties[i].value));
+  }
+  return json + "}";
 }
 
 std::string NamesJson(const Graph& graph, std::string_view prefix) {

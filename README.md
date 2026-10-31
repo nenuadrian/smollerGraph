@@ -43,6 +43,10 @@ embeddings point most nearly the same way as a node's, by their cosine:
 ./build/sg similar wikidata.sg "Blue whale" 10
 ```
 
+`sg export` writes a graph into a folder for programs outside the database, such as a script that
+trains a model on it: `nodes.jsonl`, a line of JSON for each node, with its id, name, label and
+properties, and `relationships.csv`, the ids of the nodes each relationship joins, and its type.
+
 `sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a
 label and properties to match, joined by relationships of one type that go right, `-[:EATS]->`,
 left, `<-[:EATS]-`, or either way, `-[:EATS]-`, for one hop or `*N`, then an optional `WHERE` of
