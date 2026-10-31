@@ -29,6 +29,7 @@ int Usage() {
   std::cerr
       << "usage: sg load <graph folder> <facts file>\n"
          "       sg walk <graph folder> <start> <relationship type> <hops>\n"
+         "       sg path <graph folder> <from> <to> <relationship type>\n"
          "       sg bench <graph folder> <starts file> <query with $name>\n"
          "       sg serve <graph folder> <port> [address]\n"
          "       sg query <graph folder> <query>\n";
@@ -81,6 +82,34 @@ int Walk(const smollergraph::Graph& graph, const char* start, const char* type,
        smollergraph::Walk(graph, *node, type, hops)) {
     std::cout << graph.name(found) << '\n';
   }
+  return 0;
+}
+
+// Prints a shortest path from `from` to `to`, along relationships of `type`
+// followed either way, and what finding it cost: the nodes the search reached,
+// the time it took and the pages it read.
+int FindPath(const smollergraph::Graph& graph, const char* from, const char* to,
+             const char* type) {
+  std::optional<smollergraph::NodeId> start = graph.Find(from);
+  std::optional<smollergraph::NodeId> end = graph.Find(to);
+  if (!start || !end) {
+    std::cerr << "sg: there's no node called " << (start ? to : from) << '\n';
+    return 1;
+  }
+  Clock::time_point begin = Clock::now();
+  uint64_t reads = graph.page_reads();
+  smollergraph::PathSearch search = smollergraph::ShortestPath(
+      graph, *start, *end, type, smollergraph::Direction::kBoth);
+  std::chrono::duration<double, std::milli> took = Clock::now() - begin;
+  if (search.path) {
+    std::cout << smollergraph::PathText(graph, *search.path) << '\n'
+              << search.path->relationships.size() << " hops, ";
+  } else {
+    std::cout << "No path, ";
+  }
+  std::cout << search.reached << " nodes reached in " << std::fixed
+            << std::setprecision(2) << took.count() << " ms, "
+            << graph.page_reads() - reads << " pages read\n";
   return 0;
 }
 
@@ -206,10 +235,11 @@ int main(int argc, char** argv) {
   std::string_view command = argc > 1 ? argv[1] : "";
   bool load = command == "load" && argc == 4;
   bool walk = command == "walk" && argc == 6;
+  bool path = command == "path" && argc == 6;
   bool bench = command == "bench" && argc == 5;
   bool serve = command == "serve" && (argc == 4 || argc == 5);
   bool query = command == "query" && argc == 4;
-  if (!load && !walk && !bench && !serve && !query) return Usage();
+  if (!load && !walk && !path && !bench && !serve && !query) return Usage();
 
   smollergraph::Graph graph;
   Clock::time_point opening = Clock::now();
@@ -221,6 +251,7 @@ int main(int argc, char** argv) {
   std::chrono::duration<double, std::milli> opened = Clock::now() - opening;
   if (load) return Load(graph, argv[3]);
   if (walk) return Walk(graph, argv[3], argv[4], argv[5]);
+  if (path) return FindPath(graph, argv[3], argv[4], argv[5]);
   if (serve) return Serve(graph, argv[3], argc == 5 ? argv[4] : "127.0.0.1");
   if (query) return RunQuery(graph, argv[3]);
   return Bench(graph, argv[3], argv[4], opened.count());

@@ -22,8 +22,12 @@ cmake -S . -B build -G Ninja
 cmake --build build
 ./build/sg load animals.sg data/animals.txt
 ./build/sg walk animals.sg "Red fox" EATS 2
+./build/sg path animals.sg "Tawny owl" Rabbit EATS
 ./build/sg query animals.sg "MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) RETURN c.name"
 ```
+
+`sg path` finds a shortest path between two nodes, along relationships of one type followed either
+way, with a breadth-first search, and says how many nodes it reached and how many pages it read.
 
 `sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a
 label and properties to match, joined by relationships of one type that go right, `-[:EATS]->`, or

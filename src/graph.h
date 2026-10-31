@@ -66,9 +66,16 @@ static_assert(sizeof(NodeRecord) == 64);
 static_assert(sizeof(RelationshipRecord) == 24);
 static_assert(sizeof(PropertyRecord) == 64);
 
-// Which of a node's relationships to follow: those that start at it, or those
-// that end at it.
-enum class Direction { kOut, kIn };
+// Which of a node's relationships to follow: those that start at it, those
+// that end at it, or both.
+enum class Direction { kOut, kIn, kBoth };
+
+// A step from a node along one of its relationships: the relationship, and the
+// node at its other end.
+struct Hop {
+  RelationshipId relationship;
+  NodeId node;
+};
 
 // A property's value, as the graph hands it out: a whole number or a string.
 using Value = std::variant<int64_t, std::string>;
@@ -141,8 +148,12 @@ class Graph {
     return names_.NamesStartingWith(prefix, limit);
   }
 
-  // Returns the nodes one hop from `node` along relationships of `type`, those
-  // that start at it, or with kIn, those that end at it.
+  // Returns the hops from `node` along relationships of `type`: those that
+  // start at it, those that end at it with kIn, or with kBoth, the ones out
+  // and then the ones in.
+  std::vector<Hop> Hops(NodeId node, std::string_view type,
+                        Direction direction) const;
+  // Returns the nodes those hops lead to.
   std::vector<NodeId> Neighbours(NodeId node, std::string_view type,
                                  Direction direction = Direction::kOut) const;
 
@@ -177,6 +188,10 @@ class Graph {
   // chain doesn't have yet gets a record of its own, at the front.
   void Set(PropertyId& first, std::string_view key, const Value& value);
   std::vector<Property> Chain(PropertyId first) const;
+  // Adds the hops along the relationships of type `type` in the chain that
+  // starts at `first`, out or in, in the order they were added.
+  void Follow(RelationshipId first, bool out, TokenId type,
+              std::vector<Hop>& hops) const;
 
   RecordFile<NodeRecord> nodes_;
   RecordFile<RelationshipRecord> relationships_;

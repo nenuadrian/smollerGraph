@@ -62,7 +62,8 @@ add_executable(smollergraph_tests tests/graph_test.cc tests/pager_test.cc
                                   tests/buffer_pool_test.cc
                                   tests/name_index_test.cc tests/lexer_test.cc
                                   tests/parser_test.cc tests/plan_test.cc
-                                  tests/token_store_test.cc)
+                                  tests/token_store_test.cc
+                                  tests/path_test.cc)
 target_link_libraries(smollergraph_tests PRIVATE smollergraph GTest::gtest_main)
 
 include(GoogleTest)
