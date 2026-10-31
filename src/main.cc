@@ -32,7 +32,8 @@ int Usage() {
          "       sg walk <graph folder> <start> <relationship type> <hops>\n"
          "       sg path <graph folder> <from> <to> <relationship type> "
          "[weight key]\n"
-         "       sg similar <graph folder> <name> <relationship type> <k>\n"
+         "       sg embed <graph folder> <relationship type>\n"
+         "       sg similar <graph folder> <name> <k>\n"
          "       sg bench <graph folder> <starts file> <query with $name>\n"
          "       sg serve <graph folder> <port> [address]\n"
          "       sg query <graph folder> <query>\n";
@@ -122,10 +123,29 @@ int FindPath(const smollergraph::Graph& graph, const char* from, const char* to,
   return 0;
 }
 
-// Prints the `text` nodes most like the node named `name`, as their
-// embeddings say, computed with FastRP along relationships of `type`.
+// Gives each node an embedding with FastRP, along relationships of `type`,
+// and keeps them in the graph's folder, so sg similar can read them.
+int Embed(smollergraph::Graph& graph, const char* type) {
+  Clock::time_point begin = Clock::now();
+  std::vector<smollergraph::Embedding> embeddings =
+      smollergraph::FastRP(graph, type, 42);
+  for (smollergraph::NodeId node = 0; node < embeddings.size(); ++node) {
+    graph.SetEmbedding(node, embeddings[node]);
+  }
+  graph.Flush();
+  std::chrono::duration<double> took = Clock::now() - begin;
+  std::cout << embeddings.size() << " embeddings of "
+            << smollergraph::kEmbeddingSize << " numbers, in " << std::fixed
+            << std::setprecision(1) << took.count() << " s\n"
+            << graph.page_reads() << " pages read, " << graph.page_writes()
+            << " written\n";
+  return 0;
+}
+
+// Prints the `text` nodes whose embeddings are most like the node named
+// `name`'s, by their cosines.
 int Similar(const smollergraph::Graph& graph, const char* name,
-            const char* type, std::string_view text) {
+            std::string_view text) {
   std::optional<smollergraph::NodeId> node = graph.Find(name);
   if (!node) {
     std::cerr << "sg: there's no node called " << name << '\n';
@@ -136,15 +156,14 @@ int Similar(const smollergraph::Graph& graph, const char* name,
     std::cerr << "sg: k is a number of nodes, not " << text << '\n';
     return 1;
   }
-  Clock::time_point begin = Clock::now();
-  std::vector<smollergraph::Embedding> embeddings =
-      smollergraph::FastRP(graph, type, 42);
-  std::chrono::duration<double, std::milli> took = Clock::now() - begin;
-  std::cout << embeddings.size() << " embeddings in " << std::fixed
-            << std::setprecision(1) << took.count() << " ms\n";
+  std::vector<smollergraph::Embedding> embeddings = graph.Embeddings();
+  if (embeddings.empty()) {
+    std::cerr << "sg: the graph has no embeddings, which sg embed keeps\n";
+    return 1;
+  }
   for (auto [other, cosine] : smollergraph::MostSimilar(embeddings, *node, k)) {
-    std::cout << std::setprecision(3) << cosine << "  " << graph.name(other)
-              << " (" << graph.label(other) << ")\n";
+    std::cout << std::fixed << std::setprecision(3) << cosine << "  "
+              << graph.name(other) << " (" << graph.label(other) << ")\n";
   }
   return 0;
 }
@@ -272,11 +291,13 @@ int main(int argc, char** argv) {
   bool load = command == "load" && argc == 4;
   bool walk = command == "walk" && argc == 6;
   bool path = command == "path" && (argc == 6 || argc == 7);
-  bool similar = command == "similar" && argc == 6;
+  bool embed = command == "embed" && argc == 4;
+  bool similar = command == "similar" && argc == 5;
   bool bench = command == "bench" && argc == 5;
   bool serve = command == "serve" && (argc == 4 || argc == 5);
   bool query = command == "query" && argc == 4;
-  if (!load && !walk && !path && !similar && !bench && !serve && !query) {
+  if (!load && !walk && !path && !embed && !similar && !bench && !serve &&
+      !query) {
     return Usage();
   }
 
@@ -294,7 +315,8 @@ int main(int argc, char** argv) {
     return FindPath(graph, argv[3], argv[4], argv[5],
                     argc == 7 ? argv[6] : nullptr);
   }
-  if (similar) return Similar(graph, argv[3], argv[4], argv[5]);
+  if (embed) return Embed(graph, argv[3]);
+  if (similar) return Similar(graph, argv[3], argv[4]);
   if (serve) return Serve(graph, argv[3], argc == 5 ? argv[4] : "127.0.0.1");
   if (query) return RunQuery(graph, argv[3]);
   return Bench(graph, argv[3], argv[4], opened.count());

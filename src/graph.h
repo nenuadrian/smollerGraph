@@ -1,6 +1,7 @@
 #ifndef SMOLLERGRAPH_GRAPH_H_
 #define SMOLLERGRAPH_GRAPH_H_
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -85,6 +86,16 @@ struct Hop {
   NodeId node;
 };
 
+// How many numbers a node's embedding has.
+inline constexpr size_t kEmbeddingSize = 256;
+
+// A node's embedding: a vector of numbers that stands for where the node is in
+// the graph, so that nodes with similar neighbourhoods get vectors that point
+// in similar directions. On disk, it's a record of its own, a kibibyte, which
+// has the node's id, so four fit in a page.
+using Embedding = std::array<float, kEmbeddingSize>;
+static_assert(sizeof(Embedding) == 1024);
+
 // A property's value, as the graph hands it out: a whole number or a string.
 using Value = std::variant<int64_t, std::string>;
 
@@ -116,6 +127,7 @@ class Graph {
 
   // Writes the graph's changed pages to its files, which closing it does too.
   void Flush() {
+    embeddings_.Flush();
     nodes_.Flush();
     relationships_.Flush();
     properties_.Flush();
@@ -138,6 +150,13 @@ class Graph {
   void SetProperty(NodeId node, std::string_view key, const Value& value);
   void SetRelationshipProperty(RelationshipId relationship,
                                std::string_view key, const Value& value);
+
+  // Keeps a node's embedding, in place of the one it had. The nodes are given
+  // theirs in the order of their ids.
+  void SetEmbedding(NodeId node, const Embedding& embedding);
+  // Returns the embeddings of all the nodes, in the order of their ids, or
+  // none unless each node has one.
+  std::vector<Embedding> Embeddings() const;
 
   // Returns a node's property, if it has one. Its name is a property too.
   std::optional<Value> FindProperty(NodeId node, std::string_view key) const;
@@ -184,14 +203,14 @@ class Graph {
   size_t relationship_count() const { return relationships_.count(); }
   // How many pages the graph's files have read and written.
   uint64_t page_reads() const {
-    return nodes_.page_reads() + relationships_.page_reads() +
-           properties_.page_reads() + names_.page_reads() +
-           labels_.page_reads() + types_.page_reads();
+    return embeddings_.page_reads() + nodes_.page_reads() +
+           relationships_.page_reads() + properties_.page_reads() +
+           names_.page_reads() + labels_.page_reads() + types_.page_reads();
   }
   uint64_t page_writes() const {
-    return nodes_.page_writes() + relationships_.page_writes() +
-           properties_.page_writes() + names_.page_writes() +
-           labels_.page_writes() + types_.page_writes();
+    return embeddings_.page_writes() + nodes_.page_writes() +
+           relationships_.page_writes() + properties_.page_writes() +
+           names_.page_writes() + labels_.page_writes() + types_.page_writes();
   }
 
  private:
@@ -214,6 +233,7 @@ class Graph {
   NameIndex names_;
   TokenStore labels_;
   TokenStore types_;
+  RecordFile<Embedding> embeddings_;
 };
 
 }  // namespace smollergraph

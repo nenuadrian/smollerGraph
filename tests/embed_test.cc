@@ -1,6 +1,9 @@
 #include "embed.h"
 
+#include <stdlib.h>
+
 #include <sstream>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -50,6 +53,26 @@ TEST_F(EmbedTest, FindsTheMostSimilarNodes) {
   ASSERT_EQ(similar.size(), 2);
   EXPECT_EQ(graph_.name(similar[0].first), "Tiger");
   EXPECT_GE(similar[0].second, similar[1].second);
+}
+
+TEST_F(EmbedTest, KeepsEmbeddingsInTheGraphsFolder) {
+  std::string path = ::testing::TempDir() + "embed_test_XXXXXX";
+  ASSERT_NE(mkdtemp(path.data()), nullptr);
+  {
+    Graph graph;
+    ASSERT_EQ(graph.Open(path), absl::OkStatus());
+    graph.AddRelationship(graph.AddNode("Lion"), "PARENT_TAXON",
+                          graph.AddNode("Panthera"));
+    // A graph without them has none to give.
+    EXPECT_TRUE(graph.Embeddings().empty());
+    std::vector<Embedding> embeddings = FastRP(graph, "PARENT_TAXON", 42);
+    for (NodeId node = 0; node < embeddings.size(); ++node) {
+      graph.SetEmbedding(node, embeddings[node]);
+    }
+  }
+  Graph graph;
+  ASSERT_EQ(graph.Open(path), absl::OkStatus());
+  EXPECT_EQ(graph.Embeddings(), FastRP(graph, "PARENT_TAXON", 42));
 }
 
 }  // namespace

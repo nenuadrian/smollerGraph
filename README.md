@@ -32,13 +32,15 @@ way, with a breadth-first search from both ends, which meet in the middle, and s
 it reached and how many pages it read. Given a property's key, such as `weight`, it finds a cheapest
 path instead, whose weights add up to the least, with Dijkstra's algorithm, from both ends too.
 
-`sg similar` gives each node an embedding, a vector of 256 numbers that stands for where it is in
-the graph, with FastRP, as Neo4j's Graph Data Science library computes them: a sparse random vector
-for each node, then rounds in which a node's vector becomes the sum of its neighbours' vectors. It
-prints the nodes whose embeddings point most nearly the same way as a node's, by their cosine:
+`sg embed` gives each node an embedding, a vector of 256 numbers that stands for where it is in the
+graph, with FastRP, as Neo4j's Graph Data Science library computes them: a sparse random vector for
+each node, then rounds in which a node's vector becomes the sum of its neighbours' vectors. It keeps
+them in the graph's folder, a kibibyte for each node, and `sg similar` prints the nodes whose
+embeddings point most nearly the same way as a node's, by their cosine:
 
 ```bash
-./build/sg similar wikidata.sg "Blue whale" PARENT_TAXON 10
+./build/sg embed wikidata.sg PARENT_TAXON
+./build/sg similar wikidata.sg "Blue whale" 10
 ```
 
 `sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a

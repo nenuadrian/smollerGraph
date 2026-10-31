@@ -54,6 +54,7 @@ Graph::Graph() {
   if (status.ok()) status = names_.OpenTemporary();
   if (status.ok()) status = labels_.OpenTemporary();
   if (status.ok()) status = types_.OpenTemporary();
+  if (status.ok()) status = embeddings_.OpenTemporary();
   if (!status.ok()) {
     std::fprintf(stderr, "smollergraph: no temporary files: %s\n",
                  status.ToString().c_str());
@@ -74,6 +75,7 @@ absl::Status Graph::Open(const std::string& path) {
   if (status.ok()) status = names_.Open(path + "/names");
   if (status.ok()) status = labels_.Open(path + "/labels");
   if (status.ok()) status = types_.Open(path + "/types");
+  if (status.ok()) status = embeddings_.Open(path + "/embeddings");
   return status;
 }
 
@@ -150,6 +152,24 @@ void Graph::Set(PropertyId& first, std::string_view key, const Value& value) {
   Encode(value, property);
   property.next = first;
   first = properties_.Append(property);
+}
+
+void Graph::SetEmbedding(NodeId node, const Embedding& embedding) {
+  if (node < embeddings_.count()) {
+    embeddings_.Write(node, embedding);
+  } else {
+    embeddings_.Append(embedding);
+  }
+}
+
+std::vector<Embedding> Graph::Embeddings() const {
+  std::vector<Embedding> embeddings;
+  if (embeddings_.count() != nodes_.count()) return embeddings;
+  embeddings.reserve(embeddings_.count());
+  for (NodeId node = 0; node < embeddings_.count(); ++node) {
+    embeddings.push_back(embeddings_.Read(node));
+  }
+  return embeddings;
 }
 
 std::optional<Value> Graph::FindProperty(NodeId node,

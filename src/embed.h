@@ -1,7 +1,6 @@
 #ifndef SMOLLERGRAPH_EMBED_H_
 #define SMOLLERGRAPH_EMBED_H_
 
-#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
@@ -11,14 +10,6 @@
 #include "graph.h"
 
 namespace smollergraph {
-
-// How many numbers a node's embedding has.
-inline constexpr size_t kEmbeddingSize = 256;
-
-// A node's embedding: a vector of numbers that stands for where the node is in
-// the graph, so that nodes with similar neighbourhoods get vectors that point
-// in similar directions.
-using Embedding = std::array<float, kEmbeddingSize>;
 
 // Returns an embedding for each node, in the order of their ids, computed with
 // FastRP, as Neo4j's Graph Data Science library does: a sparse random vector
