@@ -1,10 +1,14 @@
 #include "query.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <functional>
 #include <optional>
+#include <queue>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
@@ -54,6 +58,26 @@ std::optional<NodeId> Expand(const Graph& graph, std::string_view type,
   }
   side.frontier = std::move(next);
   return std::nullopt;
+}
+
+// A relationship's weight, its property `key`, when it's a whole number of
+// zero or more, as Dijkstra's algorithm needs.
+std::optional<int64_t> Weight(const Graph& graph, RelationshipId relationship,
+                              std::string_view key) {
+  std::optional<Value> value =
+      graph.FindRelationshipProperty(relationship, key);
+  const int64_t* weight = value ? std::get_if<int64_t>(&*value) : nullptr;
+  if (weight == nullptr || *weight < 0) return std::nullopt;
+  return *weight;
+}
+
+// A property's value as Cypher writes it: a string in quotes, and a number as
+// it is.
+std::string Literal(const Value& value) {
+  if (const std::string* text = std::get_if<std::string>(&value)) {
+    return absl::StrCat("'", *text, "'");
+  }
+  return absl::StrCat(std::get<int64_t>(value));
 }
 
 }  // namespace
@@ -111,12 +135,57 @@ PathSearch ShortestPath(const Graph& graph, NodeId from, NodeId to,
   return {std::nullopt, start.parents.size() + end.parents.size()};
 }
 
+PathSearch CheapestPath(const Graph& graph, NodeId from, NodeId to,
+                        std::string_view type, Direction direction,
+                        std::string_view key) {
+  // The cheapest cost found so far to each node reached, which can go down
+  // until the node is settled, and the hop that gave it.
+  std::unordered_map<NodeId, int64_t> costs = {{from, 0}};
+  Parents parents = {{from, {kNoRelationship, from}}};
+  // The nodes to settle, cheapest first. A priority queue keeps its greatest
+  // at the top, and std::greater turns that round, so the top is the least.
+  using Entry = std::pair<int64_t, NodeId>;
+  std::priority_queue<Entry, std::vector<Entry>, std::greater<>> queue;
+  queue.push({0, from});
+  while (!queue.empty()) {
+    auto [cost, node] = queue.top();
+    queue.pop();
+    // A node goes in the queue again each time its cost goes down, and the
+    // entries with the old costs are skipped.
+    if (cost > costs.at(node)) continue;
+    // The cheapest of the nodes left can't get any cheaper, as the weights
+    // are zero or more, so the end is settled once it comes out.
+    if (node == to) {
+      Path path = PathTo(parents, to);
+      path.cost = cost;
+      return {path, costs.size()};
+    }
+    for (Hop hop : graph.Hops(node, type, direction)) {
+      std::optional<int64_t> weight = Weight(graph, hop.relationship, key);
+      if (!weight) continue;
+      int64_t through = cost + *weight;
+      auto [known, added] = costs.try_emplace(hop.node, through);
+      if (!added && through >= known->second) continue;
+      known->second = through;
+      parents[hop.node] = {hop.relationship, node};
+      queue.push({through, hop.node});
+    }
+  }
+  return {std::nullopt, costs.size()};
+}
+
 std::string PathText(const Graph& graph, const Path& path) {
   std::string text = absl::StrCat("(", graph.name(path.nodes[0]), ")");
   for (size_t i = 0; i < path.relationships.size(); ++i) {
     RelationshipId id = path.relationships[i];
     bool out = graph.relationship(id).from == path.nodes[i];
-    absl::StrAppend(&text, out ? "-[:" : "<-[:", graph.type(id),
+    std::string properties;
+    for (const Property& property : graph.RelationshipProperties(id)) {
+      absl::StrAppend(&properties, properties.empty() ? " {" : ", ",
+                      property.key, ": ", Literal(property.value));
+    }
+    if (!properties.empty()) properties += "}";
+    absl::StrAppend(&text, out ? "-[:" : "<-[:", graph.type(id), properties,
                     out ? "]->(" : "]-(", graph.name(path.nodes[i + 1]), ")");
   }
   return text;

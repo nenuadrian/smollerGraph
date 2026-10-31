@@ -23,11 +23,14 @@ cmake --build build
 ./build/sg load animals.sg data/animals.txt
 ./build/sg walk animals.sg "Red fox" EATS 2
 ./build/sg path animals.sg "Tawny owl" Rabbit EATS
+./build/sg path friends.sg "Person 1" "Person 2" KNOWS weight
 ./build/sg query animals.sg "MATCH (a {name: 'Red fox'})-[:EATS*2]->(c) RETURN c.name"
 ```
 
 `sg path` finds a shortest path between two nodes, along relationships of one type followed either
-way, with a breadth-first search from both ends, which meet in the middle, and says how many nodes it reached and how many pages it read.
+way, with a breadth-first search from both ends, which meet in the middle, and says how many nodes
+it reached and how many pages it read. Given a property's key, such as `weight`, it finds a cheapest
+path instead, whose weights add up to the least, with Dijkstra's algorithm.
 
 `sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a
 label and properties to match, joined by relationships of one type that go right, `-[:EATS]->`,

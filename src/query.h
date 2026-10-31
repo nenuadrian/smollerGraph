@@ -2,6 +2,7 @@
 #define SMOLLERGRAPH_QUERY_H_
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -22,10 +23,12 @@ std::vector<std::vector<NodeId>> WalkHops(const Graph& graph, NodeId start,
                                           std::string_view type, int hops);
 
 // A path through the graph: its nodes, from its start to its end, and the
-// relationships between them, one fewer.
+// relationships between them, one fewer. A cheapest path has its cost too,
+// its relationships' weights added up.
 struct Path {
   std::vector<NodeId> nodes;
   std::vector<RelationshipId> relationships;
+  int64_t cost = 0;
 };
 
 // What a search for a path found: the path, if there is one, and how many
@@ -40,8 +43,17 @@ struct PathSearch {
 PathSearch ShortestPath(const Graph& graph, NodeId from, NodeId to,
                         std::string_view type, Direction direction);
 
+// Returns a cheapest path from `from` to `to`, along relationships of `type`
+// followed in `direction`: one whose relationships' weights, their property
+// `key`, add up to as little as any other's, found with Dijkstra's algorithm.
+// A relationship without a weight that's a whole number of zero or more isn't
+// followed.
+PathSearch CheapestPath(const Graph& graph, NodeId from, NodeId to,
+                        std::string_view type, Direction direction,
+                        std::string_view key);
+
 // A path as Cypher writes it, with the nodes' names, and each relationship's
-// arrow pointing the way it goes.
+// arrow pointing the way it goes, with its properties in braces.
 std::string PathText(const Graph& graph, const Path& path);
 
 }  // namespace smollergraph
