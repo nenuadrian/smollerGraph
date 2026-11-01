@@ -131,6 +131,9 @@ cmake --build build --target docs
 open build/docs/html/index.html
 ```
 
+CI publishes them at [nenuadrian.github.io/smollerGraph](https://nenuadrian.github.io/smollerGraph/),
+from each push to the public repository's main.
+
 Doxygen reads comments written its own ways, such as with three slashes, and ours start with two,
 as Google's style guide writes them, so the build passes each header through a filter that gives
 them their third.

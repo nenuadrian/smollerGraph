@@ -20,3 +20,31 @@ jobs:
 
       - name: Check the code with clang-tidy
         run: docker build --target tidy .
+
+      # The API docs go up from the public repository, where each episode
+      # arrives once it's out. The private one, which spends Actions minutes,
+      # doesn't build them.
+      - name: Build the API docs
+        if: ${{ !github.event.repository.private }}
+        run: docker build --target docs --output site .
+
+      - if: ${{ !github.event.repository.private }}
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  # Each push to the public repository's main publishes its API docs on GitHub
+  # Pages, at https://nenuadrian.github.io/smollerGraph/.
+  docs:
+    if: github.ref == 'refs/heads/main' && !github.event.repository.private
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v5
