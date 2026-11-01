@@ -36,3 +36,18 @@ WORKDIR /src
 COPY . .
 RUN cmake -S . -B build -G Ninja \
  && run-clang-tidy -quiet -p build '^/src/(src|tools)/'
+
+# The API docs as CI publishes them: docker build --target docs --output site .
+# writes their pages to site/. Configuring is enough, as building the docs
+# reads the sources and compiles nothing.
+FROM toolchain AS docs-build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends doxygen graphviz \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+RUN cmake -S . -B build -G Ninja \
+ && cmake --build build --target docs
+
+FROM scratch AS docs
+COPY --from=docs-build /src/build/docs/html /

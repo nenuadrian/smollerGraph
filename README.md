@@ -170,6 +170,12 @@ The same build and tests on a clean Ubuntu, as CI runs them on each push:
 docker build --target test .
 ```
 
+And the API docs, as CI publishes them, written to `site/`:
+
+```bash
+docker build --target docs --output site .
+```
+
 ## Licence
 
 MIT, see [LICENSE](LICENSE).

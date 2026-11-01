@@ -2,3 +2,4 @@
 build/
 bench/data/
 *.sg/
+site/
