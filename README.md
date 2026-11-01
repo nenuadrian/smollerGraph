@@ -120,6 +120,21 @@ the graph, so there's nothing to change through it.
 ctest --test-dir build --output-on-failure
 ```
 
+## API docs
+
+The comments in the headers are the API docs. With [Doxygen](https://www.doxygen.nl) installed
+(`brew install doxygen graphviz`, or `apt install doxygen graphviz`), the `docs` target writes them
+to `build/docs/html`:
+
+```bash
+cmake --build build --target docs
+open build/docs/html/index.html
+```
+
+Doxygen reads comments written its own ways, such as with three slashes, and ours start with two,
+as Google's style guide writes them, so the build passes each header through a filter that gives
+them their third.
+
 ## Benchmarks
 
 `make_friends` writes a social graph of made-up people, who each know ten others, with a weight on
