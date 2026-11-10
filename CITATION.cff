@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use smollerGraph in your work, please cite it using the metadata in this file."
+type: software
+title: "smollerGraph: a small graph database, built from scratch in C++"
+abstract: >-
+  A small graph database built from scratch in C++20 on the YouTube series
+  Building smollerGraph. It keeps a graph in fixed-size records, in 4 KiB pages
+  held in memory by a buffer pool, finds nodes by name with a B+ tree, loads
+  facts written as Cypher patterns, and follows relationships in either
+  direction. Each step of each episode is a git tag in the repository.
+authors:
+  - given-names: Adrian Mircea
+    family-names: Nenu
+repository-code: "https://github.com/nenuadrian/smollerGraph"
+url: "https://smollergraph.nenuadrian.com"
+license: MIT
+keywords:
+  - graph database
+  - storage engine
+  - B+ tree
+  - buffer pool
+  - Cypher
+  - C++
