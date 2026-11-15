@@ -138,6 +138,13 @@ Doxygen reads comments written its own ways, such as with three slashes, and our
 as Google's style guide writes them, so the build passes each header through a filter that gives
 them their third.
 
+## Decisions
+
+Why smollerGraph is built the way it is, a short record for each choice that would be costly to
+undo, with what else was weighed and what it costs, is in
+[docs/decisions](docs/decisions/README.md), with how to propose one. The API docs publish them
+too.
+
 ## Benchmarks
 
 `make_friends` writes a social graph of made-up people, who each know ten others, with a weight on
@@ -154,6 +161,10 @@ parses and plans each query as well as running it. It writes the medians to `ben
 ./build/make_friends 100000 10 bench/data
 uv run --with kuzu --with neo4j python bench/compare.py
 ```
+
+Episodes 3, 5 and 11 measured changes this way. From episode 12, the series stopped racing Neo4j
+and Kùzu, as [decision 18](docs/decisions/0018-vanilla-versions-not-races.md) says, so
+`compare.py` and `sg bench` are as episode 11 left them.
 
 `bench/ui.py` measures how many frames a second Chromium paints while the page's layout moves a
 made-up graph, from 500 nodes to 20,000, drawn with SVG, drawn on a canvas, and not drawn at all,

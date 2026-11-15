@@ -88,6 +88,9 @@ if(DOXYGEN_FOUND)
   set(DOXYGEN_PROJECT_BRIEF "A small graph database, from scratch")
   set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/docs)
   set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
+  # A folder's README.md would be its page under Files, and docs/decisions'
+  # is a page of its own.
+  set(DOXYGEN_IMPLICIT_DIR_DOCS NO)
   set(DOXYGEN_EXTRACT_ALL YES)
   set(DOXYGEN_JAVADOC_AUTOBRIEF YES)
   # A file's page draws the files that include it, but not all it includes,
@@ -105,6 +108,8 @@ if(DOXYGEN_FOUND)
   # and Doxygen reads comments written its own ways, such as with three, so a
   # filter gives each comment that starts a line in a header its third.
   set(DOXYGEN_FILTER_PATTERNS "*.h=sed -E 's#^ *//#&/#'")
-  doxygen_add_docs(docs README.md src)
+  # The decision records go in too, a page each, after the README that lists
+  # them.
+  doxygen_add_docs(docs README.md docs/decisions/README.md docs/decisions src)
 endif()
 

@@ -40,6 +40,9 @@ about. A change that one commit could undo, or that the code makes plain, needs 
 - One file for each decision, named with the next number and a short title, such as
   `0023-a-short-title.md`, from [template.md](template.md), and headed with its number and title,
   such as `# 23\. A short title`.
+- The API docs publish the records, a page each, after this one. The backslash in a heading keeps
+  Doxygen from reading its number as a list, and a link to this page from a record is
+  `../decisions/README.md`, as Doxygen takes a bare `README.md` to be the repository's.
 - Its sections are the status, the context, with the episode it came up in, the decision, the
   alternatives considered, and the consequences. An alternative goes in only if it was weighed, or
   if it's the obvious one, and then it says it wasn't weighed. Name the files, the settings and the
