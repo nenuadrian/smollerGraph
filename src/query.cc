@@ -197,10 +197,12 @@ PathSearch CheapestPath(const Graph& graph, NodeId from, NodeId to,
   if (from == to) return {Path{{from}, {}}, 1};
   WeightedSide start = {.direction = direction,
                         .costs = {{from, 0}},
-                        .parents = {{from, {kNoRelationship, from}}}};
+                        .parents = {{from, {kNoRelationship, from}}},
+                        .queue = {}};
   WeightedSide end = {.direction = Reversed(direction),
                       .costs = {{to, 0}},
-                      .parents = {{to, {kNoRelationship, to}}}};
+                      .parents = {{to, {kNoRelationship, to}}},
+                      .queue = {}};
   start.queue.push({0, from});
   end.queue.push({0, to});
   int64_t best = std::numeric_limits<int64_t>::max();

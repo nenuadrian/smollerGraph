@@ -28,6 +28,7 @@ FetchContent_MakeAvailable(abseil)
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/tags/v1.18.0.tar.gz
+  EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(googletest)
 # sg serve answers HTTP with cpp-httplib, a library in one header, without

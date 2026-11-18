@@ -169,6 +169,7 @@ absl::StatusOr<Plan> AddReturns(const Query& query, Plan plan) {
                                              ? item.variable
                                              : absl::StrCat(item.function, "(",
                                                             item.variable, ")"),
+                              .key = {},
                               .function = item.function});
       continue;
     }
@@ -185,7 +186,8 @@ absl::StatusOr<Plan> AddReturns(const Query& query, Plan plan) {
     plan.returns.push_back(
         {.heading = absl::StrCat(item.variable, ".", item.key),
          .slot = static_cast<int>(found - plan.slots.begin()),
-         .key = item.key});
+         .key = item.key,
+         .function = {}});
   }
   return plan;
 }
@@ -356,8 +358,9 @@ Result Run(const Plan& plan, const Graph& graph) {
     for (const Column& column : plan.returns) {
       if (column.slot >= 0) {
         NodeId node = row.nodes[column.slot];
-        cells.push_back(
-            {.node = node, .value = graph.FindProperty(node, column.key)});
+        cells.push_back({.node = node,
+                         .value = graph.FindProperty(node, column.key),
+                         .path = {}});
       } else if (column.function == "length") {
         int64_t length = row.path.relationships.size();
         cells.push_back({row.path.nodes[0], length, row.path});
