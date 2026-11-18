@@ -105,6 +105,23 @@ Then open http://localhost:8474. Or, with Docker, `docker compose up` loads the 
 gives them their embeddings and serves them there, and `docker compose -f compose.yaml -f compose.friends.yaml up` serves the
 friends from the benchmarks, with their weights, which the page draws on each relationship.
 
+## In a browser
+
+The UI also runs in a browser on its own, without a server. Built with
+[Emscripten](https://emscripten.org) (`brew install emscripten`), the library is WebAssembly, and the
+page builds the graph of mammals and birds, with their embeddings, from the Wikidata facts each time
+it opens, in its own memory, and keeps nothing:
+
+```bash
+emcmake cmake -S . -B build-web -G Ninja
+cmake --build build-web
+ctest --test-dir build-web
+python3 -m http.server -d build-web/explorer 8475
+```
+
+Then open http://localhost:8475. CI publishes it with the API docs, at
+[nenuadrian.github.io/smollerGraph/explorer](https://nenuadrian.github.io/smollerGraph/explorer/).
+
 ## Deploying
 
 `deploy.sh` copies the committed code to a server over SSH, and builds and runs it there with
@@ -188,7 +205,7 @@ The same build and tests on a clean Ubuntu, as CI runs them on each push:
 docker build --target test .
 ```
 
-And the API docs, as CI publishes them, written to `site/`:
+And the API docs, with the explorer in `explorer/`, as CI publishes them, written to `site/`:
 
 ```bash
 docker build --target docs --output site .

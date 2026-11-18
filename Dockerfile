@@ -49,5 +49,20 @@ COPY . .
 RUN cmake -S . -B build -G Ninja \
  && cmake --build build --target docs
 
+# The explorer as it runs in a browser: the library built as WebAssembly by
+# Emscripten, in its own image, beside the page's files, with the module's
+# test run in Node.
+FROM emscripten/emsdk:7.0.0 AS explorer
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ninja-build \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY . .
+RUN emcmake cmake -S . -B build-web -G Ninja \
+ && cmake --build build-web \
+ && ctest --test-dir build-web --output-on-failure
+
+# The docs, and the explorer at explorer/, so GitHub Pages serves both.
 FROM scratch AS docs
 COPY --from=docs-build /src/build/docs/html /
+COPY --from=explorer /src/build-web/explorer /explorer
