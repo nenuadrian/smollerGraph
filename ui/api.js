@@ -1,10 +1,11 @@
 // What the page asks the graph: sg serve, over HTTP, or, in the browser
 // build, the graph itself, running in the page as WebAssembly (src/web.cc).
-// Both answer with the same JSON.
+// Both answer with the same JSON, and `where` says which it is.
 
 const get = (url) => fetch(url).then((response) => response.json());
 
 const overHttp = {
+  where: 'on the server',
   query: (q) => get(`/api/query?${new URLSearchParams({q})}`),
   names: (prefix) => get(`/api/names?${new URLSearchParams({prefix})}`),
   node: (id) => get(`/api/node/${id}`),
@@ -22,6 +23,7 @@ async function inPage() {
   }
   sg.build('/graph', '/wikidata.txt', 'PARENT_TAXON');
   return {
+    where: 'in the browser',
     query: async (q) => JSON.parse(sg.query(q)),
     names: async (prefix) => JSON.parse(sg.names(prefix)),
     node: async (id) => JSON.parse(sg.node(`${id}`)),

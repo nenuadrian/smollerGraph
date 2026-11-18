@@ -59,9 +59,9 @@ async function run(q) {
   showTable(answer);
   view.show(answer.nodes, answer.relationships);
   showLegend();
-  // How much of the answer there is, and what it cost: on the server, the
-  // time from parsing to the last row, and the pages read from disk, and in
-  // the browser, the time a frame takes to paint.
+  // How much of the answer there is, and what it cost: where the graph is, on
+  // the server or in the browser, the time from parsing to the last row, and
+  // the pages read from its files, and the time a frame takes to paint.
   const more = answer.count > answer.rows.length ?
       ` (the first ${answer.rows.length})` :
       '';
@@ -69,7 +69,7 @@ async function run(q) {
       `${count(answer.nodes.length, 'node')}, ` +
       `${count(answer.relationships.length, 'relationship')} drawn · ` +
       `${answer.ms.toFixed(2)} ms and ${count(answer.pages, 'page')} ` +
-      'on the server';
+      api.where;
   status.text(summary);
   frameTimer?.stop();
   frameTimer = d3.timeout(() => {

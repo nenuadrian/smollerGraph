@@ -69,12 +69,12 @@ if(EMSCRIPTEN)
   target_link_options(sg_web PRIVATE
     -lembind -sMODULARIZE -sEXPORT_ES6 -sALLOW_MEMORY_GROWTH
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/wikidata.txt@/wikidata.txt")
-  # The page's files, without the benchmark's, which needs sg serve.
-  set(page index.html page.css app.js view.js api.js)
-  list(TRANSFORM page PREPEND ${CMAKE_SOURCE_DIR}/ui/)
-  add_custom_command(TARGET sg_web POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${page}
-            ${CMAKE_BINARY_DIR}/explorer)
+  # The page's files, without the benchmark's, which needs sg serve. CMake
+  # copies them again whenever one changes, where a step after the build would
+  # only run when sg.wasm is linked again.
+  foreach(file index.html page.css app.js view.js api.js)
+    configure_file(ui/${file} ${CMAKE_BINARY_DIR}/explorer/${file} COPYONLY)
+  endforeach()
   # Emscripten's loader reads sg.data from the folder it runs in, so the test
   # runs in the module's.
   add_test(NAME web COMMAND node ${CMAKE_SOURCE_DIR}/tests/web_test.mjs
