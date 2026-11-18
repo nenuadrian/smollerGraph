@@ -54,6 +54,22 @@ target_include_directories(smollergraph PUBLIC src)
 target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
                       absl::strings)
 
+# In a browser, built with emcmake: the library as WebAssembly, and the page's
+# way into it, sg.js, with the Wikidata facts it builds its graph from. A
+# browser runs no server, and the tests here are GoogleTest's, so neither is
+# built; the module's own test runs it in Node, as a page would load it.
+if(EMSCRIPTEN)
+  add_executable(sg_web src/web.cc)
+  set_target_properties(sg_web PROPERTIES OUTPUT_NAME sg)
+  target_link_libraries(sg_web PRIVATE smollergraph)
+  target_link_options(sg_web PRIVATE
+    -lembind -sMODULARIZE -sEXPORT_ES6 -sALLOW_MEMORY_GROWTH
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/wikidata.txt@/wikidata.txt")
+  add_test(NAME web COMMAND node ${CMAKE_SOURCE_DIR}/tests/web_test.mjs
+                            $<TARGET_FILE:sg_web>)
+  return()
+endif()
+
 add_executable(sg src/main.cc src/server.cc)
 target_link_libraries(sg PRIVATE smollergraph httplib::httplib)
 target_compile_definitions(sg PRIVATE SMOLLERGRAPH_UI="${CMAKE_SOURCE_DIR}/ui")

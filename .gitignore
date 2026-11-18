@@ -1,4 +1,5 @@
 build/
+build-web/
 *.sg/
 bench/data/
 bench/results.json
