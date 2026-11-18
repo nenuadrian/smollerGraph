@@ -56,18 +56,30 @@ target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
                       absl::strings)
 
 # In a browser, built with emcmake: the library as WebAssembly, and the page's
-# way into it, sg.js, with the Wikidata facts it builds its graph from. A
+# way into it, sg.js, with the Wikidata facts it builds its graph from, in
+# build-web/explorer, beside the UI's page, which runs there on its own. A
 # browser runs no server, and the tests here are GoogleTest's, so neither is
 # built; the module's own test runs it in Node, as a page would load it.
 if(EMSCRIPTEN)
   add_executable(sg_web src/web.cc)
-  set_target_properties(sg_web PROPERTIES OUTPUT_NAME sg)
+  set_target_properties(sg_web PROPERTIES
+    OUTPUT_NAME sg
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/explorer)
   target_link_libraries(sg_web PRIVATE smollergraph)
   target_link_options(sg_web PRIVATE
     -lembind -sMODULARIZE -sEXPORT_ES6 -sALLOW_MEMORY_GROWTH
     "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/wikidata.txt@/wikidata.txt")
+  # The page's files, without the benchmark's, which needs sg serve.
+  set(page index.html page.css app.js view.js api.js)
+  list(TRANSFORM page PREPEND ${CMAKE_SOURCE_DIR}/ui/)
+  add_custom_command(TARGET sg_web POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${page}
+            ${CMAKE_BINARY_DIR}/explorer)
+  # Emscripten's loader reads sg.data from the folder it runs in, so the test
+  # runs in the module's.
   add_test(NAME web COMMAND node ${CMAKE_SOURCE_DIR}/tests/web_test.mjs
-                            $<TARGET_FILE:sg_web>)
+                            $<TARGET_FILE:sg_web>
+           WORKING_DIRECTORY $<TARGET_FILE_DIR:sg_web>)
   return()
 endif()
 

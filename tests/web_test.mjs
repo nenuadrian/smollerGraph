@@ -1,7 +1,5 @@
 // The browser build's module, sg.js, loaded in Node as a page loads it: it
 // builds the graph from the Wikidata facts, and answers as sg serve does.
-// Emscripten's loader reads sg.data from the folder it runs in, which for
-// ctest is the build's.
 import assert from 'node:assert/strict';
 import {pathToFileURL} from 'node:url';
 

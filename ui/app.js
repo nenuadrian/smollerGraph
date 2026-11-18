@@ -1,7 +1,8 @@
-// The page: a query in our subset of Cypher, run by sg serve, with its answer
-// as a graph on a canvas, as a table and as a plan, a history of the queries
-// run, a search for a node by its name, and an inspector that shows a node's
-// record as it's kept on disk.
+// The page: a query in our subset of Cypher, run by sg serve or by the graph
+// in the page (api.js), with its answer as a graph on a canvas, as a table and
+// as a plan, a history of the queries run, a search for a node by its name,
+// and an inspector that shows a node's record as it's kept on disk.
+import {api} from './api.js';
 import {colourOf, GraphView} from './view.js';
 
 const view =
@@ -40,11 +41,9 @@ const history = [];
 // few frames have been painted.
 let frameTimer = null;
 async function run(q) {
-  const ask = (query) => fetch(`/api/query?${new URLSearchParams({q: query})}`)
-                             .then((response) => response.json());
   const explain = q.trim().toUpperCase().startsWith('EXPLAIN');
-  const [answer, planned] =
-      await Promise.all([ask(q), explain ? null : ask(`EXPLAIN ${q}`)]);
+  const [answer, planned] = await Promise.all(
+      [api.query(q), explain ? null : api.query(`EXPLAIN ${q}`)]);
   const status = d3.select('#status').classed('error', Boolean(answer.error));
   if (answer.error) {
     status.text(answer.error);
@@ -140,10 +139,7 @@ const searchInput = search.select('input');
 const suggestions = search.select('ul');
 searchInput.on('input', async () => {
   const prefix = searchInput.property('value');
-  const answer = prefix ?
-      await (await fetch(`/api/names?${new URLSearchParams({prefix})}`))
-          .json() :
-      {names: []};
+  const answer = prefix ? await api.names(prefix) : {names: []};
   suggestions.selectAll('li')
       .data(answer.names)
       .join('li')
@@ -161,7 +157,7 @@ searchInput.on('input', async () => {
 // other end of its relationships, those out of it and those into it.
 d3.select('#inspector .expand').on('click', () => expand(view.selected));
 async function expand(node) {
-  const record = await (await fetch(`/api/node/${node.id}`)).json();
+  const record = await api.node(node.id);
   const {outgoing, incoming} = record;
   view.show(
       [...outgoing, ...incoming].map(
@@ -190,7 +186,7 @@ async function expand(node) {
 // the node's, joined to it by their cosines, when sg embed has kept them.
 d3.select('#inspector .similar').on('click', () => similar(view.selected));
 async function similar(node) {
-  const answer = await (await fetch(`/api/similar/${node.id}`)).json();
+  const answer = await api.similar(node.id);
   const status = d3.select('#status').classed('error', Boolean(answer.error));
   if (answer.error) {
     status.text(answer.error);
@@ -222,7 +218,7 @@ async function similar(node) {
 async function inspect(node) {
   if (!node) return;
   view.select(node);
-  const record = await (await fetch(`/api/node/${node.id}`)).json();
+  const record = await api.node(node.id);
   const panel = d3.select('#inspector').classed('open', true);
   panel.select('h2').text(record.name);
   panel.select('.label')
