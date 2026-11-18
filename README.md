@@ -1,4 +1,8 @@
+[![smollerGraph: a graph database, from the bytes up](.github/cover.jpg)](https://smollergraph.nenuadrian.com)
+
 # smollerGraph
+
+[![CI](https://github.com/nenuadrian/smollergraph/actions/workflows/ci.yml/badge.svg)](https://github.com/nenuadrian/smollergraph/actions/workflows/ci.yml)
 
 A small graph database, built from scratch in C++ on the YouTube series
 [Building smollerGraph](https://smollergraph.nenuadrian.com). Each step of each episode is a tag
