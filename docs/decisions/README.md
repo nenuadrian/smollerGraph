@@ -38,8 +38,8 @@ about. A change that one commit could undo, or that the code makes plain, needs 
 ## How
 
 - One file for each decision, named with the next number and a short title, such as
-  `0023-a-short-title.md`, from [template.md](template.md), and headed with its number and title,
-  such as `# 23\. A short title`.
+  `0024-a-short-title.md`, from [template.md](template.md), and headed with its number and title,
+  such as `# 24\. A short title`.
 - The API docs publish the records, a page each, after this one. The backslash in a heading keeps
   Doxygen from reading its number as a list, and a link to this page from a record is
   `../decisions/README.md`, as Doxygen takes a bare `README.md` to be the repository's.
@@ -97,3 +97,4 @@ On a team, a record is where a choice gets argued before it's made, instead of a
 | [0020](0020-embeddings-with-fastrp.md) | Embeddings with FastRP, kept in the graph's folder | Accepted | 14 |
 | [0021](0021-machine-learning-outside-the-database.md) | Train models outside the database, through sg export and sg load | Accepted | 15 |
 | [0022](0022-api-docs-from-the-comments.md) | API docs from the headers' comments, with Doxygen | Accepted | 16 |
+| [0023](0023-the-explorer-in-a-browser.md) | Run the explorer in a browser, on a graph it builds when it opens | Accepted | 18 |
