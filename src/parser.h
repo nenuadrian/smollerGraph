@@ -28,7 +28,8 @@ inline constexpr int kAnyHops = 0;
 // the other way, from the next node to this one, and one written -[:EATS]-,
 // with no arrow, goes either way.
 struct RelationshipPattern {
-  std::string type;
+  // Its types: a relationship of any of them matches.
+  std::vector<std::string> types;
   int hops = 1;
   // Which way to follow it from the node before it: out, in when it's written
   // with its arrow on the left, or both with no arrow.

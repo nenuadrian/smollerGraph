@@ -46,11 +46,12 @@ struct Side {
 
 // Takes `side` a hop further, and returns the first node it reaches that the
 // other side has reached too, if there's one, where the two searches meet.
-std::optional<NodeId> Expand(const Graph& graph, std::string_view type,
-                             Side& side, const Side& other) {
+std::optional<NodeId> Expand(const Graph& graph,
+                             const std::vector<std::string>& types, Side& side,
+                             const Side& other) {
   std::vector<NodeId> next;
   for (NodeId node : side.frontier) {
-    for (Hop hop : graph.Hops(node, type, side.direction)) {
+    for (Hop hop : graph.Hops(node, types, side.direction)) {
       Hop parent = {hop.relationship, node};
       if (!side.parents.try_emplace(hop.node, parent).second) continue;
       if (other.parents.contains(hop.node)) return hop.node;
@@ -105,12 +106,12 @@ std::optional<int64_t> NextCost(WeightedSide& side) {
 // neighbours through it. A neighbour that the other side has reached is a way
 // from one end to the other, and `best` keeps the cheapest of those, with the
 // node where its halves meet.
-void Settle(const Graph& graph, std::string_view type, std::string_view key,
-            WeightedSide& side, const WeightedSide& other, int64_t& best,
-            NodeId& meet) {
+void Settle(const Graph& graph, const std::vector<std::string>& types,
+            std::string_view key, WeightedSide& side, const WeightedSide& other,
+            int64_t& best, NodeId& meet) {
   auto [cost, node] = side.queue.top();
   side.queue.pop();
-  for (Hop hop : graph.Hops(node, type, side.direction)) {
+  for (Hop hop : graph.Hops(node, types, side.direction)) {
     std::optional<int64_t> weight = Weight(graph, hop.relationship, key);
     if (!weight) continue;
     int64_t through = cost + *weight;
@@ -163,7 +164,8 @@ std::vector<std::vector<NodeId>> WalkHops(const Graph& graph, NodeId start,
 }
 
 PathSearch ShortestPath(const Graph& graph, NodeId from, NodeId to,
-                        std::string_view type, Direction direction) {
+                        const std::vector<std::string>& types,
+                        Direction direction) {
   if (from == to) return {Path{{from}, {}}, 1};
   // Two breadth-first searches, one from each end, each a hop at a time, until
   // they meet. The one from `to` follows the relationships the other way, as
@@ -174,8 +176,8 @@ PathSearch ShortestPath(const Graph& graph, NodeId from, NodeId to,
     // The side with fewer nodes to go on from takes the next hop, as it's
     // likely to read fewer relationships.
     bool forwards = start.frontier.size() <= end.frontier.size();
-    std::optional<NodeId> met = forwards ? Expand(graph, type, start, end)
-                                         : Expand(graph, type, end, start);
+    std::optional<NodeId> met = forwards ? Expand(graph, types, start, end)
+                                         : Expand(graph, types, end, start);
     if (!met) continue;
     // The start's half of the path runs to where they met, and the end's half
     // runs from the end to there, so it's added backwards.
@@ -192,8 +194,8 @@ PathSearch ShortestPath(const Graph& graph, NodeId from, NodeId to,
 }
 
 PathSearch CheapestPath(const Graph& graph, NodeId from, NodeId to,
-                        std::string_view type, Direction direction,
-                        std::string_view key) {
+                        const std::vector<std::string>& types,
+                        Direction direction, std::string_view key) {
   if (from == to) return {Path{{from}, {}}, 1};
   WeightedSide start = {.direction = direction,
                         .costs = {{from, 0}},
@@ -215,9 +217,9 @@ PathSearch CheapestPath(const Graph& graph, NodeId from, NodeId to,
     std::optional<int64_t> backwards = NextCost(end);
     if (!forwards || !backwards || *forwards + *backwards >= best) break;
     if (*forwards <= *backwards) {
-      Settle(graph, type, key, start, end, best, meet);
+      Settle(graph, types, key, start, end, best, meet);
     } else {
-      Settle(graph, type, key, end, start, best, meet);
+      Settle(graph, types, key, end, start, best, meet);
     }
   }
   size_t reached = start.costs.size() + end.costs.size();

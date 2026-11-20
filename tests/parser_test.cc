@@ -21,7 +21,7 @@ TEST(ParserTest, ReadsAPattern) {
   EXPECT_EQ(query->nodes[0].properties[0].value, Value(std::string("Red fox")));
   EXPECT_TRUE(query->nodes[2].properties.empty());
   ASSERT_EQ(query->relationships.size(), 2);
-  EXPECT_EQ(query->relationships[0].type, "EATS");
+  EXPECT_EQ(query->relationships[0].types, std::vector<std::string>{"EATS"});
   EXPECT_EQ(query->relationships[1].hops, 2);
   EXPECT_TRUE(query->distinct);
   ASSERT_EQ(query->returns.size(), 2);
@@ -34,7 +34,7 @@ TEST(ParserTest, ReadsARelationshipThatPointsLeft) {
       Parse("MATCH (b {name: 'Field mouse'})<-[:EATS]-(a) RETURN a.name");
   ASSERT_TRUE(query.ok()) << query.status();
   ASSERT_EQ(query->relationships.size(), 1);
-  EXPECT_EQ(query->relationships[0].type, "EATS");
+  EXPECT_EQ(query->relationships[0].types, std::vector<std::string>{"EATS"});
   EXPECT_EQ(query->relationships[0].direction, Direction::kIn);
   EXPECT_EQ(query->nodes[1].variable, "a");
 }

@@ -107,9 +107,9 @@ int FindPath(const smollergraph::Graph& graph, const char* from, const char* to,
   uint64_t reads = graph.page_reads();
   smollergraph::PathSearch search =
       weight == nullptr
-          ? smollergraph::ShortestPath(graph, *start, *end, type,
+          ? smollergraph::ShortestPath(graph, *start, *end, {type},
                                        smollergraph::Direction::kBoth)
-          : smollergraph::CheapestPath(graph, *start, *end, type,
+          : smollergraph::CheapestPath(graph, *start, *end, {type},
                                        smollergraph::Direction::kBoth, weight);
   std::chrono::duration<double, std::milli> took = Clock::now() - begin;
   if (search.path) {

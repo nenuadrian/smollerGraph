@@ -38,19 +38,20 @@ struct PathSearch {
   size_t reached = 0;
 };
 
-// Returns a shortest path from `from` to `to`, along relationships of `type`
-// followed in `direction`: one with as few hops as any other.
+// Returns a shortest path from `from` to `to`, along relationships of any of
+// `types` followed in `direction`: one with as few hops as any other.
 PathSearch ShortestPath(const Graph& graph, NodeId from, NodeId to,
-                        std::string_view type, Direction direction);
+                        const std::vector<std::string>& types,
+                        Direction direction);
 
-// Returns a cheapest path from `from` to `to`, along relationships of `type`
-// followed in `direction`: one whose relationships' weights, their property
-// `key`, add up to as little as any other's, found with Dijkstra's algorithm.
-// A relationship without a weight that's a whole number of zero or more isn't
-// followed.
+// Returns a cheapest path from `from` to `to`, along relationships of any of
+// `types` followed in `direction`: one whose relationships' weights, their
+// property `key`, add up to as little as any other's, found with Dijkstra's
+// algorithm. A relationship without a weight that's a whole number of zero or
+// more isn't followed.
 PathSearch CheapestPath(const Graph& graph, NodeId from, NodeId to,
-                        std::string_view type, Direction direction,
-                        std::string_view key);
+                        const std::vector<std::string>& types,
+                        Direction direction, std::string_view key);
 
 // A path as Cypher writes it, with the nodes' names, and each relationship's
 // arrow pointing the way it goes, with its properties in braces.

@@ -221,29 +221,36 @@ std::optional<NodeId> Graph::Find(std::string_view name) const {
   return names_.Find(name);
 }
 
-std::vector<Hop> Graph::Hops(NodeId node, std::string_view type,
+std::vector<Hop> Graph::Hops(NodeId node, const std::vector<std::string>& types,
                              Direction direction) const {
   std::vector<Hop> hops;
-  // Without a token for the type, no relationship has it, so there are none.
-  std::optional<TokenId> token = types_.Find(type);
-  if (!token) return hops;
+  // A type without a token is on no relationship, so it's left out, and when
+  // none of them has one, there are no hops.
+  std::vector<TokenId> tokens;
+  for (const std::string& type : types) {
+    if (std::optional<TokenId> token = types_.Find(type)) {
+      tokens.push_back(*token);
+    }
+  }
+  if (tokens.empty()) return hops;
   NodeRecord record = nodes_.Read(node);
   if (direction != Direction::kIn) {
-    Follow(record.first_out, true, *token, hops);
+    Follow(record.first_out, true, tokens, hops);
   }
   if (direction != Direction::kOut) {
-    Follow(record.first_in, false, *token, hops);
+    Follow(record.first_in, false, tokens, hops);
   }
   return hops;
 }
 
-void Graph::Follow(RelationshipId first, bool out, TokenId type,
+void Graph::Follow(RelationshipId first, bool out,
+                   const std::vector<TokenId>& types,
                    std::vector<Hop>& hops) const {
   std::vector<Hop> chain;
   RelationshipId id = first;
   while (id != kNoRelationship) {
     RelationshipRecord record = relationships_.Read(id);
-    if (record.type == type) {
+    if (std::find(types.begin(), types.end(), record.type) != types.end()) {
       chain.push_back({id, out ? record.to : record.from});
     }
     id = out ? record.next_out : record.next_in;
@@ -255,7 +262,9 @@ void Graph::Follow(RelationshipId first, bool out, TokenId type,
 std::vector<NodeId> Graph::Neighbours(NodeId node, std::string_view type,
                                       Direction direction) const {
   std::vector<NodeId> found;
-  for (Hop hop : Hops(node, type, direction)) found.push_back(hop.node);
+  for (Hop hop : Hops(node, {std::string(type)}, direction)) {
+    found.push_back(hop.node);
+  }
   return found;
 }
 

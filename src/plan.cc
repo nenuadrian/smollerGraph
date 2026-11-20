@@ -96,6 +96,10 @@ int AddFind(const Query& query, const NodePattern& node, Plan& plan) {
   return slot;
 }
 
+// The types a step follows, joined by bars as Cypher writes them, such as
+// MemberOf|AdminTo.
+std::string Types(const Step& step) { return absl::StrJoin(step.types, "|"); }
+
 // A relationship as Cypher writes it, with its arrow pointing the way it's
 // followed, or with no arrow when it's followed both ways.
 std::string Arrow(Direction direction, std::string_view type) {
@@ -125,8 +129,8 @@ int AddExpands(const Query& query, const RelationshipPattern& relationship,
     plan.steps.push_back({.kind = Step::Kind::kExpand,
                           .from = slot,
                           .to = to,
-                          .text = relationship.type,
-                          .direction = direction});
+                          .direction = direction,
+                          .types = relationship.types});
     slot = to;
   }
   AddFilters(query, node, slot, Step::Kind::kExpand, plan);
@@ -252,9 +256,9 @@ absl::StatusOr<Plan> PlanQuery(const Query& query) {
                                                  : Step::Kind::kCheapestPath,
                           .from = from,
                           .to = to,
-                          .text = relationship.type,
                           .direction = relationship.direction,
-                          .weight = relationship.weight});
+                          .weight = relationship.weight,
+                          .types = relationship.types});
     return AddReturns(query, std::move(plan));
   }
 
@@ -310,10 +314,10 @@ Result Run(const Plan& plan, const Graph& graph) {
           }
           break;
         case Step::Kind::kExpand:
-          for (NodeId node : graph.Neighbours(row.nodes[step.from], step.text,
-                                              step.direction)) {
+          for (Hop hop :
+               graph.Hops(row.nodes[step.from], step.types, step.direction)) {
             next.push_back(row);
-            next.back().nodes[step.to] = node;
+            next.back().nodes[step.to] = hop.node;
           }
           break;
         case Step::Kind::kFilter:
@@ -333,8 +337,8 @@ Result Run(const Plan& plan, const Graph& graph) {
           NodeId to = row.nodes[step.to];
           PathSearch search =
               step.kind == Step::Kind::kShortestPath
-                  ? ShortestPath(graph, from, to, step.text, step.direction)
-                  : CheapestPath(graph, from, to, step.text, step.direction,
+                  ? ShortestPath(graph, from, to, step.types, step.direction)
+                  : CheapestPath(graph, from, to, step.types, step.direction,
                                  step.weight);
           if (search.path) {
             next.push_back(row);
@@ -397,7 +401,7 @@ std::string Explain(const Plan& plan) {
         break;
       case Step::Kind::kExpand:
         absl::StrAppend(&text, "Expand (", SlotName(plan, step.from), ")",
-                        Arrow(step.direction, step.text), "(",
+                        Arrow(step.direction, Types(step)), "(",
                         SlotName(plan, step.to), ")\n");
         break;
       case Step::Kind::kFilter:
@@ -410,16 +414,16 @@ std::string Explain(const Plan& plan) {
                         step.text, "\n");
         break;
       case Step::Kind::kShortestPath:
-        // A star after the type, as the path has any number of hops.
+        // A star after the types, as the path has any number of hops.
         absl::StrAppend(&text, "ShortestPath (", SlotName(plan, step.from), ")",
-                        Arrow(step.direction, step.text + "*"), "(",
+                        Arrow(step.direction, Types(step) + "*"), "(",
                         SlotName(plan, step.to), ")\n");
         break;
       case Step::Kind::kCheapestPath:
         absl::StrAppend(
             &text, "CheapestPath (", SlotName(plan, step.from), ")",
             Arrow(step.direction,
-                  absl::StrCat(step.text, "* WSHORTEST(", step.weight, ")")),
+                  absl::StrCat(Types(step), "* WSHORTEST(", step.weight, ")")),
             "(", SlotName(plan, step.to), ")\n");
         break;
     }

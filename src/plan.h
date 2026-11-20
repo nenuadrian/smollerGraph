@@ -24,9 +24,9 @@ struct Step {
     // A row for each node with the label `text`, in slot `to`. With no index
     // on labels, it reads each node's record to find them.
     kNodeByLabelScan,
-    // For each row, a row for each node that a relationship of type `text`
-    // goes to from the node in slot `from`, in slot `to`, or comes from, when
-    // its direction is in.
+    // For each row, a row for each node that a relationship of any of the
+    // `types` goes to from the node in slot `from`, in slot `to`, or comes
+    // from, when its direction is in.
     kExpand,
     // The rows whose node in slot `from` has a property `text` that compares
     // with `value` as `op` says.
@@ -34,7 +34,7 @@ struct Step {
     // The rows whose node in slot `from` has the label `text`.
     kHasLabel,
     // For each row, a shortest path from the node in slot `from` to the node
-    // in slot `to`, along relationships of type `text`, and no row when
+    // in slot `to`, along relationships of any of the `types`, and no row when
     // there's no path.
     kShortestPath,
     // The same for a cheapest path, whose relationships' `weight` adds up to
@@ -44,7 +44,7 @@ struct Step {
   Kind kind;
   int from = -1;
   int to = -1;
-  std::string text;
+  std::string text{};
   // A filter's operator, and the value it compares with.
   std::string op = "=";
   Value value{};
@@ -52,6 +52,8 @@ struct Step {
   Direction direction = Direction::kOut;
   // The property a cheapest path adds up.
   std::string weight{};
+  // The relationship types an expand or a path follows.
+  std::vector<std::string> types{};
 };
 
 // A column of what a plan returns: its heading, such as b.name, p or

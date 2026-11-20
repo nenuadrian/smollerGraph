@@ -178,12 +178,12 @@ class Graph {
     return names_.NamesStartingWith(prefix, limit);
   }
 
-  // Returns the hops from `node` along relationships of `type`: those that
-  // start at it, those that end at it with kIn, or with kBoth, the ones out
-  // and then the ones in.
-  std::vector<Hop> Hops(NodeId node, std::string_view type,
+  // Returns the hops from `node` along relationships of any of `types`: those
+  // that start at it, those that end at it with kIn, or with kBoth, the ones
+  // out and then the ones in.
+  std::vector<Hop> Hops(NodeId node, const std::vector<std::string>& types,
                         Direction direction) const;
-  // Returns the nodes those hops lead to.
+  // Returns the nodes the hops along relationships of `type` lead to.
   std::vector<NodeId> Neighbours(NodeId node, std::string_view type,
                                  Direction direction = Direction::kOut) const;
 
@@ -221,9 +221,10 @@ class Graph {
   // Returns the value of `key` in the chain of properties that starts at
   // `first`, if the chain has it.
   std::optional<Value> Lookup(PropertyId first, std::string_view key) const;
-  // Adds the hops along the relationships of type `type` in the chain that
-  // starts at `first`, out or in, in the order they were added.
-  void Follow(RelationshipId first, bool out, TokenId type,
+  // Adds the hops along the relationships in the chain that starts at `first`
+  // whose type is one of the tokens in `types`, out or in, in the order they
+  // were added.
+  void Follow(RelationshipId first, bool out, const std::vector<TokenId>& types,
               std::vector<Hop>& hops) const;
 
   RecordFile<NodeRecord> nodes_;

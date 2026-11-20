@@ -118,7 +118,7 @@ class Parser {
       return false;
     }
     if (Peek().kind != TokenKind::kWord) return Fail("a relationship type");
-    relationship.type = Next().text;
+    relationship.types.push_back(Next().text);
     if (Symbol("*")) {
       const std::string& text = Peek().text;
       auto [end, failed] = std::from_chars(

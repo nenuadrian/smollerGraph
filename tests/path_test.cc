@@ -28,7 +28,7 @@ class PathTest : public ::testing::Test {
   std::string Shortest(std::string_view from, std::string_view to,
                        Direction direction) {
     PathSearch search = ShortestPath(graph_, *graph_.Find(from),
-                                     *graph_.Find(to), "EATS", direction);
+                                     *graph_.Find(to), {"EATS"}, direction);
     return search.path ? PathText(graph_, *search.path) : "none";
   }
 
@@ -50,15 +50,26 @@ TEST_F(PathTest, FindsAShortestPathEitherWay) {
 TEST_F(PathTest, SaysHowFarItSearched) {
   PathSearch search =
       ShortestPath(graph_, *graph_.Find("Red fox"), *graph_.Find("Red fox"),
-                   "EATS", Direction::kBoth);
+                   {"EATS"}, Direction::kBoth);
   ASSERT_TRUE(search.path);
   EXPECT_EQ(PathText(graph_, *search.path), "(Red fox)");
   // No EATS reaches the meadow, so the side that starts from it runs out after
   // a hop, with the fox's side at its two meals, four nodes in all.
   search = ShortestPath(graph_, *graph_.Find("Red fox"), *graph_.Find("Meadow"),
-                        "EATS", Direction::kBoth);
+                        {"EATS"}, Direction::kBoth);
   EXPECT_FALSE(search.path);
   EXPECT_EQ(search.reached, 4);
+}
+
+TEST_F(PathTest, FollowsAnyOfItsTypes) {
+  // The fox eats the rabbit, and the rabbit lives in the meadow, so a path
+  // that can take both types gets there, with a relationship of each.
+  PathSearch search =
+      ShortestPath(graph_, *graph_.Find("Red fox"), *graph_.Find("Meadow"),
+                   {"EATS", "LIVES_IN"}, Direction::kOut);
+  ASSERT_TRUE(search.path);
+  EXPECT_EQ(PathText(graph_, *search.path),
+            "(Red fox)-[:EATS]->(Rabbit)-[:LIVES_IN]->(Meadow)");
 }
 
 TEST(CheapestPathTest, TakesTheCheaperWayWithMoreHops) {
@@ -77,19 +88,19 @@ TEST(CheapestPathTest, TakesTheCheaperWayWithMoreHops) {
   NodeId ada = *graph.Find("Ada");
   NodeId dee = *graph.Find("Dee");
   PathSearch search =
-      CheapestPath(graph, ada, dee, "KNOWS", Direction::kBoth, "weight");
+      CheapestPath(graph, ada, dee, {"KNOWS"}, Direction::kBoth, "weight");
   ASSERT_TRUE(search.path);
   EXPECT_EQ(PathText(graph, *search.path),
             "(Ada)-[:KNOWS {weight: 2}]->(Cy)<-[:KNOWS {weight: 3}]-(Eve)"
             "-[:KNOWS {weight: 4}]->(Dee)");
   EXPECT_EQ(search.path->cost, 9);
   // Following the arrows, the way through Bob is the one left.
-  search = CheapestPath(graph, ada, dee, "KNOWS", Direction::kOut, "weight");
+  search = CheapestPath(graph, ada, dee, {"KNOWS"}, Direction::kOut, "weight");
   ASSERT_TRUE(search.path);
   EXPECT_EQ(search.path->cost, 31);
   // The shortest path takes the relationship with no weight, which the
   // cheapest path can't add up, so it doesn't follow it.
-  search = ShortestPath(graph, ada, dee, "KNOWS", Direction::kBoth);
+  search = ShortestPath(graph, ada, dee, {"KNOWS"}, Direction::kBoth);
   ASSERT_TRUE(search.path);
   EXPECT_EQ(PathText(graph, *search.path), "(Ada)-[:KNOWS]->(Dee)");
 }
