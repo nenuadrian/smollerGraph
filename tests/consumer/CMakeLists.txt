@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(FetchContent)
 FetchContent_Declare(
   smollergraph
-  URL https://github.com/nenuadrian/smollerGraph/archive/refs/tags/ep019/end.tar.gz
+  URL https://github.com/nenuadrian/smollerGraph/archive/refs/tags/v0.20.0.tar.gz
 )
 FetchContent_MakeAvailable(smollergraph)
 

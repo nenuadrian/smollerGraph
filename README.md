@@ -140,6 +140,41 @@ Active Directory, which opens on its attack paths. CI publishes it with the API 
 [nenuadrian.github.io/smollerGraph/explorer](https://nenuadrian.github.io/smollerGraph/explorer/)
 and [the company's](https://nenuadrian.github.io/smollerGraph/explorer/?graph=company).
 
+## In another project
+
+smollerGraph is a library too, which another CMake project can fetch, as it would fetch Abseil, and
+link. Fetched that way, it adds the library and `sg`, which that project builds by naming it, and
+leaves the build type and the C++ standard to the project, which needs C++20 or newer. Each release
+has a tag, `v0.20.0` for episode 20:
+
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+  smollergraph
+  URL https://github.com/nenuadrian/smollerGraph/archive/refs/tags/v0.20.0.tar.gz
+)
+FetchContent_MakeAvailable(smollergraph)
+target_link_libraries(your_target PRIVATE smollergraph::smollergraph)
+```
+
+The headers are in `include/smollergraph`, and `Execute` runs a query in one call:
+
+```cpp
+#include "smollergraph/facts.h"
+#include "smollergraph/graph.h"
+#include "smollergraph/plan.h"
+
+smollergraph::Graph graph;  // in temporary files, which go with it
+std::istringstream facts("(Red fox)-[:EATS]->(Rabbit)\n");
+absl::Status loaded = smollergraph::LoadFacts(facts, graph);
+absl::StatusOr<smollergraph::Result> result = smollergraph::Execute(
+    graph, "MATCH (a {name: 'Red fox'})-[:EATS]->(b) RETURN b.name");
+```
+
+smollerGraph declares Abseil as `abseil`, so a project that declares it first shares its copy.
+`tests/consumer` is a project like that, which CI builds on each change, on the code in hand, with
+`-DFETCHCONTENT_SOURCE_DIR_SMOLLERGRAPH` pointing at the checkout.
+
 ## Deploying
 
 `deploy.sh` copies the committed code to a server over SSH, and builds and runs it there with

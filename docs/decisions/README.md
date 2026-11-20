@@ -98,3 +98,4 @@ On a team, a record is where a choice gets argued before it's made, instead of a
 | [0021](0021-machine-learning-outside-the-database.md) | Train models outside the database, through sg export and sg load | Accepted | 15 |
 | [0022](0022-api-docs-from-the-comments.md) | API docs from the headers' comments, with Doxygen | Accepted | 16 |
 | [0023](0023-the-explorer-in-a-browser.md) | Run the explorer in a browser, on a graph it builds when it opens | Accepted | 18 |
+| [0024](0024-a-library-other-projects-fetch.md) | A library that other projects fetch, at a version | Accepted | 20 |
