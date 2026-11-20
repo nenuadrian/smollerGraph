@@ -1,6 +1,7 @@
 .git/
 build/
 build-web/
+build-consumer/
 bench/data/
 *.sg/
 site/
