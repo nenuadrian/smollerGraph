@@ -1,18 +1,22 @@
 cmake_minimum_required(VERSION 3.28)
 project(smollergraph VERSION 0.1.0 LANGUAGES CXX)
 
-# Without a build type, CMake builds without optimizations, which is no way to
-# measure a database, so an optimized build is the default.
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
+# Built on its own, smollerGraph is the whole project, and it picks the build
+# type and the standard. Fetched by another project, those are that project's
+# to pick.
+if(PROJECT_IS_TOP_LEVEL)
+  # Without a build type, CMake builds without optimizations, which is no way
+  # to measure a database, so an optimized build is the default.
+  if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+  endif()
+  set(CMAKE_CXX_STANDARD 20)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+  set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 endif()
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 # With Clang, CMake looks for C++20 modules, which we don't use.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 include(FetchContent)
 # Abseil, Google's C++ library, for absl::Status and its string functions.
@@ -25,25 +29,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(abseil)
 
-FetchContent_Declare(
-  googletest
-  URL https://github.com/google/googletest/archive/refs/tags/v1.18.0.tar.gz
-  EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(googletest)
-# sg serve answers HTTP with cpp-httplib, a library in one header, without
-# HTTPS or compression.
-set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF)
-set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF)
-set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF)
-set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF)
-FetchContent_Declare(
-  httplib
-  URL https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.60.1.tar.gz
-)
-FetchContent_MakeAvailable(httplib)
-enable_testing()
-
 add_compile_options(-Wall -Wextra -Wpedantic)
 
 add_library(smollergraph src/graph.cc src/facts.cc src/query.cc src/pager.cc
@@ -51,9 +36,47 @@ add_library(smollergraph src/graph.cc src/facts.cc src/query.cc src/pager.cc
                          src/lexer.cc src/parser.cc src/plan.cc
                          src/token_store.cc src/embed.cc
                          src/export.cc)
+# The name another project links: CMake knows a name with :: in it is a
+# target, and says so when it's missing, where it would take a plain name it
+# can't find for a library file to look for.
+add_library(smollergraph::smollergraph ALIAS smollergraph)
 target_include_directories(smollergraph PUBLIC src)
 target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
                       absl::strings)
+# C++20 at least, for the library and for whatever links it, which can ask for
+# a newer standard.
+target_compile_features(smollergraph PUBLIC cxx_std_20)
+
+# sg, which another project builds when it names it, as in cmake --build build
+# --target sg, and not otherwise. A browser runs no server, so the browser
+# build has none.
+if(NOT EMSCRIPTEN)
+  # sg serve answers HTTP with cpp-httplib, a library in one header, without
+  # HTTPS or compression.
+  set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF)
+  set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF)
+  set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF)
+  set(HTTPLIB_USE_ZSTD_IF_AVAILABLE OFF)
+  FetchContent_Declare(
+    httplib
+    URL https://github.com/yhirose/cpp-httplib/archive/refs/tags/v0.60.1.tar.gz
+  )
+  FetchContent_MakeAvailable(httplib)
+  add_executable(sg src/main.cc src/server.cc)
+  target_link_libraries(sg PRIVATE smollergraph httplib::httplib)
+  target_compile_definitions(sg PRIVATE
+                             SMOLLERGRAPH_UI="${PROJECT_SOURCE_DIR}/ui")
+  if(NOT PROJECT_IS_TOP_LEVEL)
+    set_target_properties(sg PROPERTIES EXCLUDE_FROM_ALL ON)
+  endif()
+endif()
+
+# The rest is for working on smollerGraph itself: the browser build, the
+# tests, the tools and the docs.
+if(NOT PROJECT_IS_TOP_LEVEL)
+  return()
+endif()
+enable_testing()
 
 # In a browser, built with emcmake: the library as WebAssembly, and the page's
 # way into it, sg.js, with the facts it builds its graph from, in
@@ -64,30 +87,32 @@ if(EMSCRIPTEN)
   add_executable(sg_web src/web.cc)
   set_target_properties(sg_web PROPERTIES
     OUTPUT_NAME sg
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/explorer)
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/explorer)
   target_link_libraries(sg_web PRIVATE smollergraph)
   target_link_options(sg_web PRIVATE
     -lembind -sMODULARIZE -sEXPORT_ES6 -sALLOW_MEMORY_GROWTH
-    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/wikidata.txt@/wikidata.txt"
-    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/company.txt@/company.txt")
+    "SHELL:--preload-file ${PROJECT_SOURCE_DIR}/data/wikidata.txt@/wikidata.txt"
+    "SHELL:--preload-file ${PROJECT_SOURCE_DIR}/data/company.txt@/company.txt")
   # The page's files, without the benchmark's, which needs sg serve. CMake
   # copies them again whenever one changes, where a step after the build would
   # only run when sg.wasm is linked again.
   foreach(file index.html page.css app.js view.js api.js)
-    configure_file(ui/${file} ${CMAKE_BINARY_DIR}/explorer/${file} COPYONLY)
+    configure_file(ui/${file} ${PROJECT_BINARY_DIR}/explorer/${file} COPYONLY)
   endforeach()
   # Emscripten's loader reads sg.data from the folder it runs in, so the test
   # runs in the module's.
-  add_test(NAME web COMMAND node ${CMAKE_SOURCE_DIR}/tests/web_test.mjs
+  add_test(NAME web COMMAND node ${PROJECT_SOURCE_DIR}/tests/web_test.mjs
                             $<TARGET_FILE:sg_web>
            WORKING_DIRECTORY $<TARGET_FILE_DIR:sg_web>)
   return()
 endif()
 
-add_executable(sg src/main.cc src/server.cc)
-target_link_libraries(sg PRIVATE smollergraph httplib::httplib)
-target_compile_definitions(sg PRIVATE SMOLLERGRAPH_UI="${CMAKE_SOURCE_DIR}/ui")
-
+FetchContent_Declare(
+  googletest
+  URL https://github.com/google/googletest/archive/refs/tags/v1.18.0.tar.gz
+  EXCLUDE_FROM_ALL
+)
+FetchContent_MakeAvailable(googletest)
 add_executable(smollergraph_tests tests/graph_test.cc tests/pager_test.cc
                                   tests/record_file_test.cc tests/api_test.cc
                                   tests/buffer_pool_test.cc
@@ -116,7 +141,7 @@ if(DOXYGEN_FOUND)
 
   set(DOXYGEN_PROJECT_NAME smollerGraph)
   set(DOXYGEN_PROJECT_BRIEF "A small graph database, from scratch")
-  set(DOXYGEN_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/docs)
+  set(DOXYGEN_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/docs)
   set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
   # A folder's README.md would be its page under Files, and docs/decisions'
   # is a page of its own.

@@ -16,7 +16,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(smollergraph)
 
 add_executable(consumer main.cc)
-target_link_libraries(consumer PRIVATE smollergraph)
+target_link_libraries(consumer PRIVATE smollergraph::smollergraph)
 
 enable_testing()
 add_test(NAME consumer COMMAND consumer)
