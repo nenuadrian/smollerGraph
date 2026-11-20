@@ -82,6 +82,27 @@ button:hover {
   border-color: var(--node);
 }
 
+/* The graphs the browser build can make, which sg serve can't, so they're
+   shown in the browser, with the one the page made in the nodes' colour. */
+#graphs {
+  display: none;
+  gap: 20px;
+  margin-left: auto;
+}
+
+#graphs.shown {
+  display: flex;
+}
+
+#graphs a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+#graphs a.active {
+  color: var(--node);
+}
+
 /* The search, with its suggestions in a list that opens under it. */
 #search {
   position: relative;

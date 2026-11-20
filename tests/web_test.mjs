@@ -23,6 +23,16 @@ assert.equal(JSON.parse(sg.similar(`${genus}`)).similar.length, 10);
 // A query it can't parse is an error, as sg serve sends it.
 assert.match(JSON.parse(sg.query('MATCH (n RETURN n')).error, /expected \)/);
 
+// A second module, as a second page has, builds the made-up company, where
+// 105 accounts have a path to Domain Admins.
+const company = await load();
+company.build('/graph', '/company.txt', 'MemberOf');
+const paths = JSON.parse(company.query(
+    'MATCH p = shortestPath((u:User)-[:MemberOf|AdminTo|HasSession|' +
+    'ForceChangePassword|GenericAll*]->(g:Group {name: \'Domain Admins\'})) ' +
+    'RETURN u.name, length(p)'));
+assert.equal(paths.count, 105);
+
 console.log(
     `${built.nodes} nodes and ${built.relationships} relationships, ` +
     `with their embeddings, in ${built.ms} ms`);

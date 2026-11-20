@@ -56,7 +56,7 @@ target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
                       absl::strings)
 
 # In a browser, built with emcmake: the library as WebAssembly, and the page's
-# way into it, sg.js, with the Wikidata facts it builds its graph from, in
+# way into it, sg.js, with the facts it builds its graph from, in
 # build-web/explorer, beside the UI's page, which runs there on its own. A
 # browser runs no server, and the tests here are GoogleTest's, so neither is
 # built; the module's own test runs it in Node, as a page would load it.
@@ -68,7 +68,8 @@ if(EMSCRIPTEN)
   target_link_libraries(sg_web PRIVATE smollergraph)
   target_link_options(sg_web PRIVATE
     -lembind -sMODULARIZE -sEXPORT_ES6 -sALLOW_MEMORY_GROWTH
-    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/wikidata.txt@/wikidata.txt")
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/wikidata.txt@/wikidata.txt"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/company.txt@/company.txt")
   # The page's files, without the benchmark's, which needs sg serve. CMake
   # copies them again whenever one changes, where a step after the build would
   # only run when sg.wasm is linked again.

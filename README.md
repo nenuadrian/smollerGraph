@@ -63,7 +63,8 @@ uv run --with torch --with numpy python tools/gnn.py export predictions.txt
 ```
 
 `sg query` answers a small subset of [Cypher](https://opencypher.org): a pattern of nodes, with a
-label and properties to match, joined by relationships of one type that go right, `-[:EATS]->`,
+label and properties to match, joined by relationships of a type, or of any of a few with bars
+between them, `-[:EATS|LIVES_IN]->`, that go right, `-[:EATS]->`,
 left, `<-[:EATS]-`, or either way, `-[:EATS]-`, for one hop or `*N`, then an optional `WHERE` of
 comparisons joined by `AND`, such as `b.weight_g < 1000`, and `RETURN [DISTINCT]` properties of its
 variables. `MATCH p = shortestPath((a {name: 'Red fox'})-[:PARENT_TAXON*]-(b {name: 'Lion'}))`
@@ -85,6 +86,21 @@ a few minutes:
 python3 tools/wikidata.py data/wikidata.txt
 ./build/sg load wikidata.sg data/wikidata.txt
 ./build/sg query wikidata.sg "MATCH (s:Species {name: 'Red fox'})-[:PARENT_TAXON*3]->(o) RETURN o.name"
+```
+
+## A company's Active Directory
+
+`data/company.txt` is a made-up company's Active Directory, written by `tools/company.py` from two
+lists of names and a seeded random generator: 275 accounts, 277 computers and 9 groups, joined the
+way [BloodHound](https://github.com/SpecterOps/BloodHound) draws them, each relationship pointing
+the way an attacker would go, with `MemberOf`, `AdminTo`, `HasSession`, `ForceChangePassword` and
+`GenericAll`. A shortest path along any of the five, from an account to Domain Admins, is an
+attack path:
+
+```bash
+python3 tools/company.py data/company.txt
+./build/sg load company.sg data/company.txt
+./build/sg query company.sg "MATCH p = shortestPath((u:User)-[:MemberOf|AdminTo|HasSession|ForceChangePassword|GenericAll*]->(g:Group {name: 'Domain Admins'})) RETURN u.name, length(p)"
 ```
 
 ## The UI
@@ -119,8 +135,10 @@ ctest --test-dir build-web
 python3 -m http.server -d build-web/explorer 8475
 ```
 
-Then open http://localhost:8475. CI publishes it with the API docs, at
-[nenuadrian.github.io/smollerGraph/explorer](https://nenuadrian.github.io/smollerGraph/explorer/).
+Then open http://localhost:8475, or http://localhost:8475/?graph=company for the made-up company's
+Active Directory, which opens on its attack paths. CI publishes it with the API docs, at
+[nenuadrian.github.io/smollerGraph/explorer](https://nenuadrian.github.io/smollerGraph/explorer/)
+and [the company's](https://nenuadrian.github.io/smollerGraph/explorer/?graph=company).
 
 ## Deploying
 

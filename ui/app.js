@@ -245,4 +245,15 @@ async function inspect(node) {
   }
 }
 
+// In the browser build, the header links to the graphs the page can make,
+// with the one it made marked, and the company's graph opens on its query.
+if (api.graph) {
+  d3.select('#graphs')
+      .classed('shown', true)
+      .selectAll('a')
+      .classed('active', function() {
+        return this.dataset.graph === api.graph;
+      });
+}
+if (api.opening) text.property('value', api.opening);
 run(text.property('value'));
