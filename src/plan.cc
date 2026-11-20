@@ -7,6 +7,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -381,6 +382,18 @@ Result Run(const Plan& plan, const Graph& graph) {
     result.rows.push_back(std::move(cells));
   }
   return result;
+}
+
+absl::StatusOr<Result> Execute(const Graph& graph, std::string_view text) {
+  absl::StatusOr<Query> query = Parse(text);
+  if (!query.ok()) return query.status();
+  if (query->explain) {
+    return absl::InvalidArgumentError(
+        "EXPLAIN asks for the plan, which PlanQuery and Explain give");
+  }
+  absl::StatusOr<Plan> plan = PlanQuery(*query);
+  if (!plan.ok()) return plan.status();
+  return Run(*plan, graph);
 }
 
 std::string Explain(const Plan& plan) {

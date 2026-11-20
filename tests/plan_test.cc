@@ -129,12 +129,10 @@ TEST(PlanTest, RefusesVariablesItCannotPlan) {
 
 // The values a query returns, a row to a string, with commas between columns.
 std::vector<std::string> Answers(const Graph& graph, const std::string& text) {
-  absl::StatusOr<Query> query = Parse(text);
-  if (!query.ok()) return {std::string(query.status().message())};
-  absl::StatusOr<Plan> plan = PlanQuery(*query);
-  if (!plan.ok()) return {std::string(plan.status().message())};
+  absl::StatusOr<Result> result = Execute(graph, text);
+  if (!result.ok()) return {std::string(result.status().message())};
   std::vector<std::string> answers;
-  for (const std::vector<Cell>& row : Run(*plan, graph).rows) {
+  for (const std::vector<Cell>& row : result->rows) {
     std::string answer;
     for (const Cell& cell : row) {
       answer += (answer.empty() ? "" : ", ") +
@@ -265,6 +263,17 @@ TEST_F(RunTest, FiltersAndReturnsProperties) {
                     "MATCH (a {name: 'Rabbit'})-[:EATS]->(b) "
                     "RETURN b.name, b.weight_g"),
             std::vector<std::string>{"Clover, null"});
+}
+
+TEST_F(RunTest, SaysWhyItCannotExecuteAQuery) {
+  // The parser's error, the planner's, and EXPLAIN, which asks for a plan.
+  EXPECT_EQ(Answers(graph_, "MATCH (a RETURN a.name"),
+            std::vector<std::string>{"expected ) at 9, not RETURN"});
+  EXPECT_EQ(Answers(graph_, "MATCH (a) RETURN b.name"),
+            std::vector<std::string>{"there's no variable called b"});
+  EXPECT_EQ(Answers(graph_, "EXPLAIN MATCH (a) RETURN a.name"),
+            std::vector<std::string>{
+                "EXPLAIN asks for the plan, which PlanQuery and Explain give"});
 }
 
 TEST(WeightedRunTest, AddsUpTheWeightsOfACheapestPath) {

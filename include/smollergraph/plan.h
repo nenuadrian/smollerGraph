@@ -3,6 +3,7 @@
 
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "absl/status/statusor.h"
@@ -107,6 +108,13 @@ std::string ValueText(const Value& value);
 
 // Runs a plan on a graph, a step at a time, each on all of the rows at once.
 Result Run(const Plan& plan, const Graph& graph);
+
+// Parses, plans and runs a query in our subset of Cypher on a graph, in one
+// call, as Kùzu's connection does with execute. Returns the parser's or the
+// planner's error for a query it can't run, and an error for a query with
+// EXPLAIN in front, as that asks for the plan, which PlanQuery and Explain
+// give.
+absl::StatusOr<Result> Execute(const Graph& graph, std::string_view text);
 
 }  // namespace smollergraph
 

@@ -6,7 +6,6 @@
 #include "absl/status/statusor.h"
 #include "smollergraph/facts.h"
 #include "smollergraph/graph.h"
-#include "smollergraph/parser.h"
 #include "smollergraph/plan.h"
 
 int main() {
@@ -19,19 +18,17 @@ int main() {
     std::cerr << status << '\n';
     return 1;
   }
-  absl::StatusOr<smollergraph::Query> query = smollergraph::Parse(
+  absl::StatusOr<smollergraph::Result> result = smollergraph::Execute(
+      graph,
       "MATCH (a {name: 'Red fox'})-[:EATS]->(b)-[:LIVES_IN]->(c) "
       "RETURN c.name");
-  absl::StatusOr<smollergraph::Plan> plan =
-      query.ok() ? smollergraph::PlanQuery(*query) : query.status();
-  if (!plan.ok()) {
-    std::cerr << plan.status() << '\n';
+  if (!result.ok()) {
+    std::cerr << result.status() << '\n';
     return 1;
   }
-  smollergraph::Result result = smollergraph::Run(*plan, graph);
   // The fox eats the rabbit, which lives in the meadow.
-  if (result.rows.size() != 1 ||
-      smollergraph::ValueText(*result.rows[0][0].value) != "Meadow") {
+  if (result->rows.size() != 1 ||
+      smollergraph::ValueText(*result->rows[0][0].value) != "Meadow") {
     std::cerr << "the fox's food doesn't live in the meadow\n";
     return 1;
   }
