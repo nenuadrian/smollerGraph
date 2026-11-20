@@ -53,7 +53,7 @@ absl::StatusOr<std::vector<Token>> Lex(std::string_view query) {
       // Two characters that make one comparison.
       tokens.push_back({TokenKind::kSymbol, std::string(pair), start});
       i += 2;
-    } else if (std::string_view("()[]{}:,.-<>*=").find(c) !=
+    } else if (std::string_view("()[]{}:,.-<>*=|").find(c) !=
                std::string_view::npos) {
       tokens.push_back({TokenKind::kSymbol, std::string(1, c), start});
       ++i;

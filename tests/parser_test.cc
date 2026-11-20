@@ -67,6 +67,17 @@ TEST(ParserTest, ReadsACheapestPath) {
   EXPECT_EQ(query->returns[1].function, "cost");
 }
 
+TEST(ParserTest, ReadsSeveralTypes) {
+  absl::StatusOr<Query> query = Parse(
+      "MATCH p = shortestPath((u {name: 'Ben'})-[:MemberOf|AdminTo*]->"
+      "(g {name: 'Domain Admins'})) RETURN p");
+  ASSERT_TRUE(query.ok()) << query.status();
+  ASSERT_EQ(query->relationships.size(), 1);
+  EXPECT_EQ(query->relationships[0].types,
+            (std::vector<std::string>{"MemberOf", "AdminTo"}));
+  EXPECT_EQ(query->relationships[0].hops, kAnyHops);
+}
+
 TEST(ParserTest, ReadsWhereAndProperties) {
   absl::StatusOr<Query> query = Parse(
       "MATCH (a:Animal {legs: 2})-[:EATS]->(b) WHERE b.weight_g < 1000 AND "
@@ -99,6 +110,8 @@ TEST(ParserTest, SaysWhatItExpected) {
             "expected ( at 19, not >");
   EXPECT_EQ(Parse("MATCH (a)-[:EATS*20]->(b) RETURN b.name").status().message(),
             "expected a number of hops from 1 to 10 at 17, not 20");
+  EXPECT_EQ(Parse("MATCH (a)-[:EATS|]->(b) RETURN b.name").status().message(),
+            "expected a relationship type at 17, not ]");
   EXPECT_EQ(
       Parse("MATCH (a) WHERE a.legs is 2 RETURN a.name").status().message(),
       "expected a comparison at 23, not is");

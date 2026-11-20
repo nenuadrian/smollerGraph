@@ -95,6 +95,15 @@ TEST(PlanTest, FindsBothEndsOfAShortestPath) {
             "a relationship with any number of hops needs shortestPath");
 }
 
+TEST(PlanTest, WritesSeveralTypesWithBars) {
+  EXPECT_EQ(Explained("MATCH p = shortestPath((u:User)-[:MemberOf|AdminTo*]->"
+                      "(g {name: 'Domain Admins'})) RETURN u.name"),
+            "NodeByLabelScan (u:User)\n"
+            "NodeIndexSeek (g {name: 'Domain Admins'})\n"
+            "ShortestPath (u)-[:MemberOf|AdminTo*]->(g)\n"
+            "Return u.name\n");
+}
+
 TEST(PlanTest, FindsACheapestPathWithAWeight) {
   EXPECT_EQ(Explained("MATCH p = (a {name: 'Ada'})-[:KNOWS* WSHORTEST(weight)]"
                       "-(b {name: 'Dee'}) RETURN cost(p)"),
@@ -194,6 +203,14 @@ TEST_F(RunTest, FollowsARelationshipEitherWay) {
                     "MATCH (m {name: 'Field mouse'})-[:EATS]-(b) "
                     "RETURN b.name"),
             (std::vector<std::string>{"Wheat", "Red fox", "Tawny owl"}));
+}
+
+TEST_F(RunTest, FollowsAnyOfSeveralTypes) {
+  // What the rabbit eats, and where it lives.
+  EXPECT_EQ(Answers(graph_,
+                    "MATCH (r {name: 'Rabbit'})-[:EATS|LIVES_IN]->(b) "
+                    "RETURN b.name"),
+            (std::vector<std::string>{"Clover", "Meadow"}));
 }
 
 TEST_F(RunTest, FindsAShortestPath) {

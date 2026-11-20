@@ -110,15 +110,20 @@ class Parser {
     return ExpectSymbol(")");
   }
 
-  // relationship := - [ : type [* [hops | WSHORTEST(key)]] ] - [>]
-  //               | < - [ : type [* [hops | WSHORTEST(key)]] ] -
+  // relationship := - [ : types [* [hops | WSHORTEST(key)]] ] - [>]
+  //               | < - [ : types [* [hops | WSHORTEST(key)]] ] -
+  // types := type (| type)*
   bool ParseRelationship(RelationshipPattern& relationship) {
     if (Symbol("<")) relationship.direction = Direction::kIn;
     if (!ExpectSymbol("-") || !ExpectSymbol("[") || !ExpectSymbol(":")) {
       return false;
     }
-    if (Peek().kind != TokenKind::kWord) return Fail("a relationship type");
-    relationship.types.push_back(Next().text);
+    // A bar between two types, as in -[:MemberOf|AdminTo]->, matches a
+    // relationship of either.
+    do {
+      if (Peek().kind != TokenKind::kWord) return Fail("a relationship type");
+      relationship.types.push_back(Next().text);
+    } while (Symbol("|"));
     if (Symbol("*")) {
       const std::string& text = Peek().text;
       auto [end, failed] = std::from_chars(
