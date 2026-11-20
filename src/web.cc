@@ -13,10 +13,10 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "api.h"
-#include "embed.h"
-#include "facts.h"
-#include "graph.h"
+#include "smollergraph/api.h"
+#include "smollergraph/embed.h"
+#include "smollergraph/facts.h"
+#include "smollergraph/graph.h"
 
 namespace smollergraph {
 namespace {

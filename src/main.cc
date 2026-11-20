@@ -14,14 +14,14 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
-#include "embed.h"
-#include "export.h"
-#include "facts.h"
-#include "graph.h"
-#include "parser.h"
-#include "plan.h"
-#include "query.h"
-#include "server.h"
+#include "smollergraph/embed.h"
+#include "smollergraph/export.h"
+#include "smollergraph/facts.h"
+#include "smollergraph/graph.h"
+#include "smollergraph/parser.h"
+#include "smollergraph/plan.h"
+#include "smollergraph/query.h"
+#include "smollergraph/server.h"
 
 namespace {
 

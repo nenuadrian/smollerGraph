@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "absl/status/statusor.h"
-#include "graph.h"
+#include "smollergraph/graph.h"
 
 namespace smollergraph {
 

@@ -4,10 +4,10 @@
 #include <sstream>
 
 #include "absl/status/statusor.h"
-#include "facts.h"
-#include "graph.h"
-#include "parser.h"
-#include "plan.h"
+#include "smollergraph/facts.h"
+#include "smollergraph/graph.h"
+#include "smollergraph/parser.h"
+#include "smollergraph/plan.h"
 
 int main() {
   smollergraph::Graph graph;

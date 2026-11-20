@@ -1,4 +1,4 @@
-#include "export.h"
+#include "smollergraph/export.h"
 
 #include <stdlib.h>
 
@@ -7,8 +7,8 @@
 #include <string>
 
 #include "absl/status/status.h"
-#include "graph.h"
 #include "gtest/gtest.h"
+#include "smollergraph/graph.h"
 
 namespace smollergraph {
 namespace {

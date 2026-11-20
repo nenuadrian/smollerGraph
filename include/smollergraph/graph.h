@@ -11,9 +11,9 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "name_index.h"
-#include "record_file.h"
-#include "token_store.h"
+#include "smollergraph/name_index.h"
+#include "smollergraph/record_file.h"
+#include "smollergraph/token_store.h"
 
 namespace smollergraph {
 

@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "pager.h"
+#include "smollergraph/pager.h"
 
 namespace smollergraph {
 

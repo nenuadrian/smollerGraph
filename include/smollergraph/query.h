@@ -8,7 +8,7 @@
 #include <string_view>
 #include <vector>
 
-#include "graph.h"
+#include "smollergraph/graph.h"
 
 namespace smollergraph {
 

@@ -1,4 +1,4 @@
-#include "plan.h"
+#include "smollergraph/plan.h"
 
 #include <algorithm>
 #include <compare>

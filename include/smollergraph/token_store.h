@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "record_file.h"
+#include "smollergraph/record_file.h"
 
 namespace smollergraph {
 

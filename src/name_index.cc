@@ -1,4 +1,4 @@
-#include "name_index.h"
+#include "smollergraph/name_index.h"
 
 #include <algorithm>
 #include <cstdio>

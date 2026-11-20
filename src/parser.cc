@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "smollergraph/parser.h"
 
 #include <algorithm>
 #include <cctype>
@@ -13,7 +13,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "lexer.h"
+#include "smollergraph/lexer.h"
 
 namespace smollergraph {
 namespace {

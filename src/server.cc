@@ -1,4 +1,4 @@
-#include "server.h"
+#include "smollergraph/server.h"
 
 #include <httplib.h>
 
@@ -8,7 +8,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "api.h"
+#include "smollergraph/api.h"
 
 namespace smollergraph {
 namespace {

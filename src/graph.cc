@@ -1,4 +1,4 @@
-#include "graph.h"
+#include "smollergraph/graph.h"
 
 #include <sys/stat.h>
 

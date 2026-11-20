@@ -1,4 +1,4 @@
-#include "query.h"
+#include "smollergraph/query.h"
 
 #include <algorithm>
 #include <cstdint>

@@ -1,4 +1,4 @@
-#include "lexer.h"
+#include "smollergraph/lexer.h"
 
 #include <cctype>
 #include <string>

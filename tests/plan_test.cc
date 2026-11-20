@@ -1,4 +1,4 @@
-#include "plan.h"
+#include "smollergraph/plan.h"
 
 #include <sstream>
 #include <string>
@@ -6,9 +6,9 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "facts.h"
 #include "gtest/gtest.h"
-#include "parser.h"
+#include "smollergraph/facts.h"
+#include "smollergraph/parser.h"
 
 namespace smollergraph {
 namespace {

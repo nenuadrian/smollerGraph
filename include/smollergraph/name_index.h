@@ -9,8 +9,8 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "buffer_pool.h"
-#include "pager.h"
+#include "smollergraph/buffer_pool.h"
+#include "smollergraph/pager.h"
 
 namespace smollergraph {
 

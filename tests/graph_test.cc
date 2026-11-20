@@ -1,4 +1,4 @@
-#include "graph.h"
+#include "smollergraph/graph.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -8,9 +8,9 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "facts.h"
 #include "gtest/gtest.h"
-#include "query.h"
+#include "smollergraph/facts.h"
+#include "smollergraph/query.h"
 
 namespace smollergraph {
 namespace {

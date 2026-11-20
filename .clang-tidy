@@ -14,4 +14,4 @@ Checks: >
 CheckOptions:
   performance-no-automatic-move.AllowedTypes: '::absl::Status'
 WarningsAsErrors: '*'
-HeaderFilterRegex: '/src/[a-z_]+\.h$'
+HeaderFilterRegex: '/include/smollergraph/[a-z_]+\.h$'

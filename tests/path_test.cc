@@ -3,10 +3,10 @@
 #include <string_view>
 
 #include "absl/status/status.h"
-#include "facts.h"
-#include "graph.h"
 #include "gtest/gtest.h"
-#include "query.h"
+#include "smollergraph/facts.h"
+#include "smollergraph/graph.h"
+#include "smollergraph/query.h"
 
 namespace smollergraph {
 namespace {

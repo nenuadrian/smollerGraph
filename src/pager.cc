@@ -1,4 +1,4 @@
-#include "pager.h"
+#include "smollergraph/pager.h"
 
 #include <fcntl.h>
 #include <sys/stat.h>

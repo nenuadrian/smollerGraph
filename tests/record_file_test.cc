@@ -1,4 +1,4 @@
-#include "record_file.h"
+#include "smollergraph/record_file.h"
 
 #include <cstdint>
 #include <cstdio>

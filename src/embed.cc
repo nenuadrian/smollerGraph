@@ -1,4 +1,4 @@
-#include "embed.h"
+#include "smollergraph/embed.h"
 
 #include <algorithm>
 #include <cmath>

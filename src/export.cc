@@ -1,4 +1,4 @@
-#include "export.h"
+#include "smollergraph/export.h"
 
 #include <sys/stat.h>
 
@@ -8,7 +8,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
-#include "api.h"
+#include "smollergraph/api.h"
 
 namespace smollergraph {
 

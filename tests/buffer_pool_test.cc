@@ -1,4 +1,4 @@
-#include "buffer_pool.h"
+#include "smollergraph/buffer_pool.h"
 
 #include <atomic>
 #include <cstddef>
@@ -8,7 +8,7 @@
 
 #include "absl/status/status.h"
 #include "gtest/gtest.h"
-#include "pager.h"
+#include "smollergraph/pager.h"
 
 namespace smollergraph {
 namespace {

@@ -1,4 +1,4 @@
-#include "embed.h"
+#include "smollergraph/embed.h"
 
 #include <stdlib.h>
 
@@ -9,9 +9,9 @@
 #include <vector>
 
 #include "absl/status/status.h"
-#include "facts.h"
-#include "graph.h"
 #include "gtest/gtest.h"
+#include "smollergraph/facts.h"
+#include "smollergraph/graph.h"
 
 namespace smollergraph {
 namespace {

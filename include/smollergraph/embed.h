@@ -7,7 +7,7 @@
 #include <utility>
 #include <vector>
 
-#include "graph.h"
+#include "smollergraph/graph.h"
 
 namespace smollergraph {
 

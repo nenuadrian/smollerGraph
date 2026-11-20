@@ -5,7 +5,7 @@
 #include <string>
 
 #include "absl/status/status.h"
-#include "graph.h"
+#include "smollergraph/graph.h"
 
 namespace smollergraph {
 

@@ -40,7 +40,10 @@ add_library(smollergraph src/graph.cc src/facts.cc src/query.cc src/pager.cc
 # target, and says so when it's missing, where it would take a plain name it
 # can't find for a library file to look for.
 add_library(smollergraph::smollergraph ALIAS smollergraph)
-target_include_directories(smollergraph PUBLIC src)
+# The headers are in include/smollergraph, so another project includes them as
+# "smollergraph/graph.h", and our names, such as graph.h, can't clash with its
+# own.
+target_include_directories(smollergraph PUBLIC include)
 target_link_libraries(smollergraph PUBLIC absl::status absl::statusor
                       absl::strings)
 # C++20 at least, for the library and for whatever links it, which can ask for
@@ -165,6 +168,7 @@ if(DOXYGEN_FOUND)
   set(DOXYGEN_FILTER_PATTERNS "*.h=sed -E 's#^ *//#&/#'")
   # The decision records go in too, a page each, after the README that lists
   # them.
-  doxygen_add_docs(docs README.md docs/decisions/README.md docs/decisions src)
+  doxygen_add_docs(docs README.md docs/decisions/README.md docs/decisions
+                   include src)
 endif()
 

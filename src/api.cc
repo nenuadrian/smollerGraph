@@ -1,4 +1,4 @@
-#include "api.h"
+#include "smollergraph/api.h"
 
 #include <chrono>
 #include <cmath>
@@ -13,10 +13,10 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
-#include "embed.h"
-#include "parser.h"
-#include "plan.h"
-#include "record_file.h"
+#include "smollergraph/embed.h"
+#include "smollergraph/parser.h"
+#include "smollergraph/plan.h"
+#include "smollergraph/record_file.h"
 
 namespace smollergraph {
 namespace {

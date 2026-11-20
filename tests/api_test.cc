@@ -1,4 +1,4 @@
-#include "api.h"
+#include "smollergraph/api.h"
 
 #include <cstdint>
 #include <string>
@@ -6,9 +6,9 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "embed.h"
-#include "graph.h"
 #include "gtest/gtest.h"
+#include "smollergraph/embed.h"
+#include "smollergraph/graph.h"
 
 namespace smollergraph {
 namespace {
