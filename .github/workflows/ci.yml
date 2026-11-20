@@ -18,6 +18,9 @@ jobs:
       - name: Build and run the tests
         run: docker build --target test .
 
+      - name: Build a project that uses the library
+        run: docker build --target consumer .
+
       - name: Check the code with clang-tidy
         run: docker build --target tidy .
 

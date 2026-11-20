@@ -13,6 +13,17 @@ RUN cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
 FROM build AS test
 RUN ctest --test-dir build --output-on-failure
 
+# Another project, tests/consumer, which fetches smollerGraph and links the
+# library, built on these sources, which FetchContent takes in place of the
+# download, so a change that breaks it for other projects fails here.
+FROM toolchain AS consumer
+WORKDIR /src
+COPY . .
+RUN cmake -S tests/consumer -B /consumer -G Ninja \
+      -DFETCHCONTENT_SOURCE_DIR_SMOLLERGRAPH=/src \
+ && cmake --build /consumer \
+ && ctest --test-dir /consumer --output-on-failure
+
 FROM python:3.13-slim AS lint
 RUN pip install --no-cache-dir clang-format==19.1.7 cpplint==2.0.2
 WORKDIR /lint
