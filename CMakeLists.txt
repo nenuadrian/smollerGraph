@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(smollergraph VERSION 0.20.0 LANGUAGES CXX)
+project(smollergraph VERSION 0.20.1 LANGUAGES CXX)
 
 # Built on its own, smollerGraph is the whole project, and it picks the build
 # type and the standard. Fetched by another project, those are that project's
@@ -145,10 +145,23 @@ if(DOXYGEN_FOUND)
   set(DOXYGEN_PROJECT_NAME smollerGraph)
   set(DOXYGEN_PROJECT_BRIEF "A small graph database, from scratch")
   set(DOXYGEN_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/docs)
-  set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
+  # The README is named by its whole path, as Doxygen 1.9 takes any file named
+  # README.md to be the main page, docs/decisions' too, and then leaves that
+  # one out.
+  set(DOXYGEN_USE_MDFILE_AS_MAINPAGE ${PROJECT_SOURCE_DIR}/README.md)
   # A folder's README.md would be its page under Files, and docs/decisions'
   # is a page of its own.
   set(DOXYGEN_IMPLICIT_DIR_DOCS NO)
+  # Each class, function and file links to its code, highlighted, at the line
+  # that defines it, and the code shows as it's written, comments and all.
+  set(DOXYGEN_SOURCE_BROWSER YES)
+  set(DOXYGEN_STRIP_CODE_COMMENTS NO)
+  # The menu, with a link to the code on GitHub after the pages.
+  set(DOXYGEN_LAYOUT_FILE ${PROJECT_SOURCE_DIR}/docs/doxygen/layout.xml)
+  # The README's cover, which docs/doxygen/filter.sh points at here.
+  set(DOXYGEN_HTML_EXTRA_FILES ${PROJECT_SOURCE_DIR}/.github/cover.jpg)
+  # A record's template is for writing one, so it isn't a page.
+  set(DOXYGEN_EXCLUDE ${PROJECT_SOURCE_DIR}/docs/decisions/template.md)
   set(DOXYGEN_EXTRACT_ALL YES)
   set(DOXYGEN_JAVADOC_AUTOBRIEF YES)
   # A file's page draws the files that include it, but not all it includes,
@@ -165,8 +178,13 @@ if(DOXYGEN_FOUND)
   # Our comments start with two slashes, as Google's style guide writes them,
   # and Doxygen reads comments written its own ways, such as with three, so a
   # filter gives each comment that starts a line in a header its third.
-  set(DOXYGEN_FILTER_PATTERNS "*.h=sed -E 's#^ *//#&/#'")
-  # The decision records go in too, a page each, after the README that lists
+  # The Markdown files go through docs/doxygen/filter.sh, which files the
+  # decision records under the groups of their index, for the menu.
+  set(DOXYGEN_FILTER_PATTERNS
+    "*.h=sed -E 's#^ *//#&/#'"
+    "*.md=sh ${PROJECT_SOURCE_DIR}/docs/doxygen/filter.sh https://github.com/nenuadrian/smollerGraph"
+  )
+  # The decision records go in too, a page each, under the README that lists
   # them.
   doxygen_add_docs(docs README.md docs/decisions/README.md docs/decisions
                    include src)

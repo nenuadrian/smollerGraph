@@ -38,11 +38,12 @@ about. A change that one commit could undo, or that the code makes plain, needs 
 ## How
 
 - One file for each decision, named with the next number and a short title, such as
-  `0024-a-short-title.md`, from [template.md](template.md), and headed with its number and title,
-  such as `# 24\. A short title`.
-- The API docs publish the records, a page each, after this one. The backslash in a heading keeps
-  Doxygen from reading its number as a list, and a link to this page from a record is
-  `../decisions/README.md`, as Doxygen takes a bare `README.md` to be the repository's.
+  `0025-a-short-title.md`, from [template.md](template.md), and headed with its number and title,
+  such as `# 25. A short title`. Records 1 to 24 have a backslash before the dot, which the API docs
+  leave out.
+- The API docs publish the records, a page each, in the groups of the index below, and a link to
+  this page from a record is `../decisions/README.md`, as Doxygen takes a bare `README.md` to be
+  the repository's.
 - Its sections are the status, the context, with the episode it came up in, the decision, the
   alternatives considered, and the consequences. An alternative goes in only if it was weighed, or
   if it's the obvious one, and then it says it wasn't weighed. Name the files, the settings and the
@@ -53,7 +54,7 @@ about. A change that one commit could undo, or that the code makes plain, needs 
 - An accepted record is never rewritten, like a published step
   ([0005](0005-a-tag-for-each-step.md)). To change a decision, write a new record, and set the old
   one's status to `Superseded by` the new one. That line is the only edit an accepted record gets.
-- Add it to the index below.
+- Add it to the index below, in the group it's about, or in a new group if none fits.
 
 ## Working with others
 
@@ -73,29 +74,63 @@ On a team, a record is where a choice gets argued before it's made, instead of a
 
 ## Index
 
+The records by what they're about, each group in the order they were written.
+
+### Language, build and checks
+
 | Number | Title | Status | Episode |
 |---|---|---|---|
 | [0001](0001-cpp-in-googles-style.md) | C++20, in Google's style, built with CMake and Ninja | Accepted | 1, 4 |
-| [0002](0002-an-embedded-library-and-sg.md) | An embedded library, with sg as its program | Accepted | 1, 4, 15 |
-| [0003](0003-relationships-beside-their-nodes.md) | Keep each node's relationships beside it, in records that point at each other | Accepted | 1, 2 |
-| [0004](0004-facts-as-cypher-patterns.md) | Load a graph from facts written as Cypher patterns, one a line | Accepted | 1, 3, 9, 10, 15 |
-| [0005](0005-a-tag-for-each-step.md) | A tag for each step of each episode | Accepted | 1, 2, 5, 16 |
 | [0006](0006-build-test-and-check-in-docker.md) | Build, test and check in Docker, on each push | Accepted | 2, 4, 16 |
-| [0007](0007-fixed-size-records-in-pages-of-4-kib.md) | Fixed-size records, in pages of 4 KiB | Accepted | 2, 9, 10, 11 |
-| [0008](0008-measure-against-neo4j-and-kuzu.md) | Measure each change against Neo4j and Kùzu | Superseded by [0018](0018-vanilla-versions-not-races.md) | 3, 5, 11 |
 | [0009](0009-errors-as-absl-status.md) | Errors as absl::Status, without exceptions | Accepted | 1, 4 |
-| [0010](0010-draw-the-whole-graph-with-svg.md) | Draw the whole graph in the browser, with SVG | Superseded by [0016](0016-draw-what-a-query-returns-on-a-canvas.md) | 4 |
+| [0022](0022-api-docs-from-the-comments.md) | API docs from the headers' comments, with Doxygen | Accepted | 16 |
+
+### Storage
+
+| Number | Title | Status | Episode |
+|---|---|---|---|
+| [0003](0003-relationships-beside-their-nodes.md) | Keep each node's relationships beside it, in records that point at each other | Accepted | 1, 2 |
+| [0007](0007-fixed-size-records-in-pages-of-4-kib.md) | Fixed-size records, in pages of 4 KiB | Accepted | 2, 9, 10, 11 |
 | [0011](0011-a-buffer-pool-of-our-own.md) | Keep pages in a buffer pool of our own, with the clock | Accepted | 5 |
 | [0012](0012-a-b-plus-tree-for-names.md) | Find a node by its name with a B+ tree | Accepted | 6 |
-| [0013](0013-a-subset-of-cypher.md) | Our own subset of Cypher, planned with Neo4j's operators | Accepted | 7, 9, 10, 11 |
-| [0014](0014-deploy-to-one-server-behind-caddy.md) | Deploy to one server with deploy.sh, behind Caddy | Accepted | 8 |
 | [0015](0015-properties-in-chains-of-records.md) | Properties in chains of records of their own | Accepted | 9, 13 |
-| [0016](0016-draw-what-a-query-returns-on-a-canvas.md) | Draw what a query returns, on a canvas | Accepted | 10 |
 | [0017](0017-tokens-and-two-chains.md) | Labels and types as tokens, and each relationship in two chains | Accepted | 11 |
-| [0018](0018-vanilla-versions-not-races.md) | Build vanilla versions of what Neo4j and Kùzu offer, and stop racing them | Accepted | 12, 13, 14, 15 |
+
+### Loading and querying
+
+| Number | Title | Status | Episode |
+|---|---|---|---|
+| [0004](0004-facts-as-cypher-patterns.md) | Load a graph from facts written as Cypher patterns, one a line | Accepted | 1, 3, 9, 10, 15 |
+| [0013](0013-a-subset-of-cypher.md) | Our own subset of Cypher, planned with Neo4j's operators | Accepted | 7, 9, 10, 11 |
 | [0019](0019-paths-from-both-ends.md) | Search for paths from both ends, and write them as Neo4j and Kùzu do | Accepted | 12, 13 |
+
+### Embeddings and machine learning
+
+| Number | Title | Status | Episode |
+|---|---|---|---|
 | [0020](0020-embeddings-with-fastrp.md) | Embeddings with FastRP, kept in the graph's folder | Accepted | 14 |
 | [0021](0021-machine-learning-outside-the-database.md) | Train models outside the database, through sg export and sg load | Accepted | 15 |
-| [0022](0022-api-docs-from-the-comments.md) | API docs from the headers' comments, with Doxygen | Accepted | 16 |
+
+### Drawing the graph
+
+| Number | Title | Status | Episode |
+|---|---|---|---|
+| [0010](0010-draw-the-whole-graph-with-svg.md) | Draw the whole graph in the browser, with SVG | Superseded by [0016](0016-draw-what-a-query-returns-on-a-canvas.md) | 4 |
+| [0016](0016-draw-what-a-query-returns-on-a-canvas.md) | Draw what a query returns, on a canvas | Accepted | 10 |
 | [0023](0023-the-explorer-in-a-browser.md) | Run the explorer in a browser, on a graph it builds when it opens | Accepted | 18 |
+
+### Packaging and deploying
+
+| Number | Title | Status | Episode |
+|---|---|---|---|
+| [0002](0002-an-embedded-library-and-sg.md) | An embedded library, with sg as its program | Accepted | 1, 4, 15 |
+| [0014](0014-deploy-to-one-server-behind-caddy.md) | Deploy to one server with deploy.sh, behind Caddy | Accepted | 8 |
 | [0024](0024-a-library-other-projects-fetch.md) | A library that other projects fetch, at a version | Accepted | 20 |
+
+### How the series works
+
+| Number | Title | Status | Episode |
+|---|---|---|---|
+| [0005](0005-a-tag-for-each-step.md) | A tag for each step of each episode | Accepted | 1, 2, 5, 16 |
+| [0008](0008-measure-against-neo4j-and-kuzu.md) | Measure each change against Neo4j and Kùzu | Superseded by [0018](0018-vanilla-versions-not-races.md) | 3, 5, 11 |
+| [0018](0018-vanilla-versions-not-races.md) | Build vanilla versions of what Neo4j and Kùzu offer, and stop racing them | Accepted | 12, 13, 14, 15 |

@@ -1,4 +1,4 @@
-# N\. A short title that names the choice
+# N. A short title that names the choice
 
 ## Status
 
