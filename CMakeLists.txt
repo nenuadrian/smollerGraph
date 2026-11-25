@@ -14,6 +14,11 @@ if(PROJECT_IS_TOP_LEVEL)
   set(CMAKE_CXX_STANDARD_REQUIRED ON)
   set(CMAKE_CXX_EXTENSIONS OFF)
   set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+  # MSVC's programs need Microsoft's C++ runtime installed, unless they carry
+  # their own copy of it, as sg does. Abseil picks the installed one unless
+  # it's told otherwise, and the two can't be linked together.
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  set(ABSL_MSVC_STATIC_RUNTIME ON)
 endif()
 # With Clang, CMake looks for C++20 modules, which we don't use.
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
@@ -62,7 +67,9 @@ target_compile_features(smollergraph PUBLIC cxx_std_20)
 # build has none.
 if(NOT EMSCRIPTEN)
   # sg serve answers HTTP with cpp-httplib, a library in one header, without
-  # HTTPS or compression.
+  # HTTPS or compression, and without its own install rules, which would put
+  # its header in sg's download.
+  set(HTTPLIB_INSTALL OFF)
   set(HTTPLIB_USE_OPENSSL_IF_AVAILABLE OFF)
   set(HTTPLIB_USE_ZLIB_IF_AVAILABLE OFF)
   set(HTTPLIB_USE_BROTLI_IF_AVAILABLE OFF)
@@ -78,6 +85,11 @@ if(NOT EMSCRIPTEN)
   # for its arguments.
   if(WIN32)
     target_sources(sg PRIVATE src/sg.manifest)
+  endif()
+  # On Linux, sg carries its own C++ standard library, as RHEL 9 has GCC 11's,
+  # older than the one sg is built with.
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND PROJECT_IS_TOP_LEVEL)
+    target_link_options(sg PRIVATE -static-libstdc++ -static-libgcc)
   endif()
   target_compile_definitions(sg PRIVATE
                              SMOLLERGRAPH_UI="${PROJECT_SOURCE_DIR}/ui")
@@ -119,8 +131,41 @@ if(EMSCRIPTEN)
   add_test(NAME web COMMAND node ${PROJECT_SOURCE_DIR}/tests/web_test.mjs
                             $<TARGET_FILE:sg_web>
            WORKING_DIRECTORY $<TARGET_FILE_DIR:sg_web>)
+  # The explorer's download, its folder in a zip for any web server to serve:
+  # cpack --config build-web/CPackConfig.cmake.
+  install(DIRECTORY ${PROJECT_BINARY_DIR}/explorer/ DESTINATION .)
+  set(CPACK_SYSTEM_NAME web)
+  set(CPACK_GENERATOR ZIP)
+  include(CPack)
   return()
 endif()
+
+# What a download of sg holds, which cmake --install puts in a folder and
+# CPack packs in an archive, as cpack --config build/CPackConfig.cmake does:
+# sg, the UI's page in a folder beside it, the facts to load, the README and
+# the licence.
+install(TARGETS sg RUNTIME DESTINATION .)
+install(DIRECTORY ui/ DESTINATION ui)
+install(DIRECTORY data/ DESTINATION data)
+install(FILES README.md LICENSE DESTINATION .)
+# Each archive's name ends with the system and the processor it's for, as in
+# smollergraph-0.21.0-linux-x86_64.tar.gz, unless it's given another.
+if(NOT CPACK_SYSTEM_NAME)
+  if(APPLE)
+    set(CPACK_SYSTEM_NAME macos-${CMAKE_SYSTEM_PROCESSOR})
+  else()
+    string(TOLOWER "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}"
+           CPACK_SYSTEM_NAME)
+  endif()
+endif()
+# A tar.gz for Linux, and a zip for Windows and macOS, which open one with a
+# double-click.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(CPACK_GENERATOR TGZ)
+else()
+  set(CPACK_GENERATOR ZIP)
+endif()
+include(CPack)
 
 FetchContent_Declare(
   googletest

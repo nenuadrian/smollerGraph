@@ -72,6 +72,39 @@ RUN emcmake cmake -S . -B build-web -G Ninja \
  && cmake --build build-web \
  && ctest --test-dir build-web --output-on-failure
 
+# The downloads a release has from here, sg for Linux, on the processor the
+# image is built on, and the explorer for any web server:
+# docker build --target linux-package --output dist . writes the first to
+# dist/, and --target web-package the second. Each packs what passed its
+# tests.
+#
+# sg for Linux is built on the oldest system it's for, Ubuntu 22.04, as a
+# program built against a newer C library asks for its newer functions: built
+# on 24.04, sg wouldn't start on 22.04 or Debian 12. 22.04's own CMake is
+# older than ours, so it comes from Python's package index.
+FROM ubuntu:22.04 AS linux-package-build
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      g++-12 ninja-build python3-pip ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip install --no-cache-dir cmake==3.31.6
+ENV CC=gcc-12 CXX=g++-12
+WORKDIR /src
+COPY . .
+RUN cmake -S . -B build -G Ninja \
+ && cmake --build build \
+ && ctest --test-dir build --output-on-failure \
+ && cpack --config build/CPackConfig.cmake -B /packages
+
+FROM scratch AS linux-package
+COPY --from=linux-package-build /packages/*.tar.gz /
+
+FROM explorer AS web-package-build
+RUN cpack --config build-web/CPackConfig.cmake -B /packages
+
+FROM scratch AS web-package
+COPY --from=web-package-build /packages/*.zip /
+
 # The docs, and the explorer at explorer/, so GitHub Pages serves both.
 FROM scratch AS docs
 COPY --from=docs-build /src/build/docs/html /
