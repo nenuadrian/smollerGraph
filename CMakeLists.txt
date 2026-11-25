@@ -74,6 +74,11 @@ if(NOT EMSCRIPTEN)
   FetchContent_MakeAvailable(httplib)
   add_executable(sg src/main.cc src/server.cc)
   target_link_libraries(sg PRIVATE smollergraph httplib::httplib)
+  # On Windows, sg's manifest asks for UTF-8, which our names are written in,
+  # for its arguments.
+  if(WIN32)
+    target_sources(sg PRIVATE src/sg.manifest)
+  endif()
   target_compile_definitions(sg PRIVATE
                              SMOLLERGRAPH_UI="${PROJECT_SOURCE_DIR}/ui")
   if(NOT PROJECT_IS_TOP_LEVEL)

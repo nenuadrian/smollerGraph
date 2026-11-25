@@ -1,3 +1,11 @@
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
@@ -301,9 +309,30 @@ int RunQuery(const smollergraph::Graph& graph, const char* text) {
   return 0;
 }
 
+#ifdef _WIN32
+// Windows' console shows what a program prints in its own code page, which
+// isn't UTF-8. While sg runs, the console is told that what it prints is
+// UTF-8, and it gets its own code page back when sg returns.
+class Utf8Console {
+ public:
+  Utf8Console() : code_page_(GetConsoleOutputCP()) {
+    SetConsoleOutputCP(CP_UTF8);
+  }
+  ~Utf8Console() { SetConsoleOutputCP(code_page_); }
+  Utf8Console(const Utf8Console&) = delete;
+  Utf8Console& operator=(const Utf8Console&) = delete;
+
+ private:
+  UINT code_page_;
+};
+#endif
+
 }  // namespace
 
 int main(int argc, char** argv) {
+#ifdef _WIN32
+  Utf8Console console;
+#endif
   std::string_view command = argc > 1 ? argv[1] : "";
   bool load = command == "load" && argc == 4;
   bool walk = command == "walk" && argc == 6;
