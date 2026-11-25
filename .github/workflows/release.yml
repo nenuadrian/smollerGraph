@@ -1,0 +1,154 @@
+name: Release
+
+# A version's tag, such as v0.21.0, pushed to the public repository, builds
+# sg for Linux, macOS and Windows, and the explorer, each on GitHub's runners
+# for its system, and makes a release of the archives, with their checksums.
+# Run by hand, it builds and keeps the archives in the run, without a release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Linux's archives are built in Docker, on Ubuntu 22.04, as on a laptop:
+  # docker build --target linux-package --output dist . One runner for each
+  # processor, as each builds for its own.
+  linux:
+    # The private repository gets each version's tag too, and spends Actions
+    # minutes, so a tag builds here only in the public one.
+    if: github.event_name == 'workflow_dispatch' || !github.event.repository.private
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --target linux-package --output dist .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.runner }}
+          path: dist/*
+
+  web:
+    if: github.event_name == 'workflow_dispatch' || !github.event.repository.private
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build --target web-package --output dist .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: dist/*
+
+  # One program for Macs with Apple's processors and with Intel's, in a
+  # universal binary, for macOS 13 and later.
+  macos:
+    if: github.event_name == 'workflow_dispatch' || !github.event.repository.private
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build, test and pack sg
+        run: |
+          cmake -S . -B build -G Ninja \
+            "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DCPACK_SYSTEM_NAME=macos-universal
+          cmake --build build
+          ctest --test-dir build --output-on-failure
+          cpack --config build/CPackConfig.cmake -B dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos
+          path: dist/*.zip
+
+  # The universal binary's Intel half, which an Apple processor's tests don't
+  # run, run on an Intel Mac, which finds the red fox's order.
+  macos-intel:
+    needs: macos
+    runs-on: macos-26-intel
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: macos
+      - name: Load the facts and ask for a species
+        run: |
+          unzip -q smollergraph-*.zip
+          cd smollergraph-*/
+          ./sg load wikidata.sg data/wikidata.txt
+          ./sg query wikidata.sg "MATCH (s:Species {name: 'Red fox'})-[:PARENT_TAXON*3]->(o) RETURN o.name" | grep Carnivora
+
+  windows:
+    if: github.event_name == 'workflow_dispatch' || !github.event.repository.private
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+      # Visual Studio's generator, with MSVC, builds each configuration in a
+      # folder of its own, so each command names Release.
+      # pwsh carries on past a command that fails, unless it's told to stop.
+      - name: Build and test sg
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          cmake -S . -B build -DCPACK_SYSTEM_NAME=windows-x64
+          cmake --build build --config Release --parallel
+          ctest --test-dir build -C Release --output-on-failure
+      # A name with an accent, passed from PowerShell, which finds the node
+      # only when sg reads its arguments as UTF-8.
+      - name: Ask for the Réunion Kestrel
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          build\Release\sg.exe load wikidata.sg data\wikidata.txt
+          $rows = build\Release\sg.exe query wikidata.sg "MATCH (s:Species {name: 'Réunion Kestrel'}) RETURN s.taxon"
+          $rows
+          if (-not ($rows -match 'Falco duboisi')) { exit 1 }
+      - name: Pack sg
+        run: cpack --config build/CPackConfig.cmake -C Release -B dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          path: dist/*.zip
+
+  # The release, once every archive is built: their SHA-256 checksums, in a
+  # file of their own, and an attestation, signed with Sigstore, that names
+  # each archive by its checksum and says which workflow, commit and repository
+  # built them. A tag pushed to the public repository makes one, and a run by
+  # hand doesn't, even on a tag.
+  release:
+    needs: [linux, web, macos, macos-intel, windows]
+    if: >-
+      github.event_name == 'push' && github.ref_type == 'tag'
+      && !github.event.repository.private
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Write the checksums
+        working-directory: dist
+        run: sha256sum smollergraph-* > SHA256SUMS
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/smollergraph-*
+      # The release's notes start with the tag's message, which checkout
+      # doesn't fetch, as it fetches the commit alone.
+      - name: Make the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          git tag --list --format='%(contents)' "$GITHUB_REF_NAME" > notes.md
+          cat >> notes.md <<'EOF'
+
+          Which file to download, and how to check it, is in the README's
+          [Downloads](https://github.com/nenuadrian/smollerGraph#downloads).
+          EOF
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "smollerGraph ${GITHUB_REF_NAME#v}" --notes-file notes.md
