@@ -29,7 +29,8 @@ void Send(const absl::StatusOr<std::string>& json,
 
 }  // namespace
 
-absl::Status Serve(const Graph& graph, const std::string& address, int port) {
+absl::Status Serve(const Graph& graph, const std::string& ui,
+                   const std::string& address, int port) {
   httplib::Server server;
   // cpp-httplib lets several servers share a port by default, so a second sg
   // serve on a busy port would start without a word. SO_REUSEADDR alone lets
@@ -37,13 +38,11 @@ absl::Status Serve(const Graph& graph, const std::string& address, int port) {
   server.set_socket_options([](socket_t fd) {
     httplib::set_socket_opt(fd, SOL_SOCKET, SO_REUSEADDR, 1);
   });
-  // The UI's files are served from the source tree, so changing one needs a
-  // reload in the browser, not a new build. No cache tells the browser to ask
-  // whether a file has changed before it uses its copy.
-  if (!server.set_mount_point("/", SMOLLERGRAPH_UI,
-                              {{"Cache-Control", "no-cache"}})) {
-    return absl::NotFoundError(
-        absl::StrCat("there's no folder ", SMOLLERGRAPH_UI));
+  // No cache tells the browser to ask whether a file has changed before it
+  // uses its copy, so a change to one in the source tree needs a reload, not
+  // a new build.
+  if (!server.set_mount_point("/", ui, {{"Cache-Control", "no-cache"}})) {
+    return absl::NotFoundError(absl::StrCat("there's no folder ", ui));
   }
   // The server answers requests on several threads at once. Nothing writes to
   // the graph while it's served, and the buffer pools' latches keep their

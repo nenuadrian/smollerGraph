@@ -8,9 +8,11 @@
 
 namespace smollergraph {
 
-// Answers HTTP requests for the graph on `address` and `port`, until the
-// process is stopped. Returns an error when it can't listen there.
-absl::Status Serve(const Graph& graph, const std::string& address, int port);
+// Answers HTTP requests for the graph on `address` and `port`, with the UI's
+// page from the folder `ui`, until the process is stopped. Returns an error
+// when there's no such folder, or it can't listen there.
+absl::Status Serve(const Graph& graph, const std::string& ui,
+                   const std::string& address, int port);
 
 }  // namespace smollergraph
 

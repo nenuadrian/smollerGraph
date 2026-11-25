@@ -4,17 +4,22 @@
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
 #endif
 
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -252,6 +257,41 @@ int Bench(const smollergraph::Graph& graph, const char* path,
   return 0;
 }
 
+// The folder sg's program is in. Each system has its own way to say where a
+// running program is.
+std::filesystem::path ProgramFolder() {
+#ifdef _WIN32
+  wchar_t path[MAX_PATH];
+  DWORD size = GetModuleFileNameW(nullptr, path, MAX_PATH);
+  return std::filesystem::path(std::wstring(path, size)).parent_path();
+#elif defined(__APPLE__)
+  uint32_t size = 0;
+  _NSGetExecutablePath(nullptr, &size);
+  std::string path(size, '\0');
+  if (_NSGetExecutablePath(path.data(), &size) != 0) return {};
+  // The path sg was started by, which can be a link to it, as in
+  // /usr/local/bin. canonical follows the links to where sg is.
+  std::error_code error;
+  return std::filesystem::canonical(path.c_str(), error).parent_path();
+#else
+  std::error_code error;
+  return std::filesystem::read_symlink("/proc/self/exe", error).parent_path();
+#endif
+}
+
+// The UI's files: in a folder beside the program, where a download keeps
+// them, or else in the source tree this sg was built from.
+std::string UiFolder() {
+  std::error_code error;
+  std::filesystem::path beside = ProgramFolder() / "ui";
+  if (std::filesystem::is_directory(beside, error)) return beside.string();
+  if (std::filesystem::is_directory(SMOLLERGRAPH_UI, error)) {
+    return SMOLLERGRAPH_UI;
+  }
+  // Neither is there, and the error names the folder a download would have.
+  return beside.string();
+}
+
 // Serves the graph over HTTP on the port in `text`, until it's stopped. It
 // listens on this machine alone, unless it's given another address.
 int Serve(const smollergraph::Graph& graph, std::string_view text,
@@ -261,7 +301,8 @@ int Serve(const smollergraph::Graph& graph, std::string_view text,
     std::cerr << "sg: a port is a number from 1 to 65535, not " << text << '\n';
     return 1;
   }
-  if (absl::Status status = smollergraph::Serve(graph, address, port);
+  if (absl::Status status =
+          smollergraph::Serve(graph, UiFolder(), address, port);
       !status.ok()) {
     std::cerr << "sg: " << status.message() << '\n';
     return 1;
