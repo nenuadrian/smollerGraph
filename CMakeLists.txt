@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.28)
-project(smollergraph VERSION 0.20.2 LANGUAGES CXX)
+project(smollergraph VERSION 0.21.0 LANGUAGES CXX)
 
 # Built on its own, smollerGraph is the whole project, and it picks the build
 # type and the standard. Fetched by another project, those are that project's

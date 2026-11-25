@@ -126,6 +126,7 @@ The records by what they're about, each group in the order they were written.
 | [0002](0002-an-embedded-library-and-sg.md) | An embedded library, with sg as its program | Accepted | 1, 4, 15 |
 | [0014](0014-deploy-to-one-server-behind-caddy.md) | Deploy to one server with deploy.sh, behind Caddy | Accepted | 8 |
 | [0024](0024-a-library-other-projects-fetch.md) | A library that other projects fetch, at a version | Accepted | 20 |
+| [0025](0025-release-downloads-from-a-tag.md) | Downloads for Linux, macOS, Windows and the web, built from a version's tag | Accepted | 21 |
 
 ### How the series works
 

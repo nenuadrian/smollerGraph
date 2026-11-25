@@ -17,6 +17,45 @@ written as Cypher patterns, one a line, with a label after a colon and propertie
 `(Rabbit:Animal {legs: 4})`, walks relationships of one type from a node, and draws the graph in a
 browser.
 
+## Downloads
+
+Each release, from 0.21.0 on, has `sg` built for Linux, macOS and Windows, and the explorer, on
+[the releases page](https://github.com/nenuadrian/smollerGraph/releases/latest):
+
+| File | For |
+|---|---|
+| `smollergraph-0.21.0-linux-x86_64.tar.gz` | Linux on Intel and AMD processors: Ubuntu 22.04, Debian 12, Fedora 41, Rocky Linux 9, Amazon Linux 2023 or newer |
+| `smollergraph-0.21.0-linux-aarch64.tar.gz` | Linux on Arm processors, the same systems |
+| `smollergraph-0.21.0-macos-universal.zip` | macOS 13 or newer, on Apple's processors or Intel's |
+| `smollergraph-0.21.0-windows-x64.zip` | Windows 10 or 11, 64-bit |
+| `smollergraph-0.21.0-web.zip` | The explorer, for any web server to serve |
+
+Each archive of `sg` has the program, the UI's page in `ui` beside it, and the facts in `data`:
+
+```bash
+tar xzf smollergraph-0.21.0-linux-x86_64.tar.gz
+cd smollergraph-0.21.0-linux-x86_64
+./sg load wikidata.sg data/wikidata.txt
+./sg serve wikidata.sg 8474
+```
+
+On Windows, it's `sg.exe` in the same commands. `sg` isn't signed with an Apple Developer ID, so
+macOS won't open a copy downloaded with a browser until you allow it in System Settings, under
+Privacy & Security, or `xattr -d com.apple.quarantine sg` takes the download's mark off it.
+
+`SHA256SUMS` has each archive's checksum, and GitHub's attestation says which workflow built it,
+from which commit:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS     # shasum -a 256 on macOS
+gh attestation verify smollergraph-0.21.0-linux-x86_64.tar.gz --repo nenuadrian/smollerGraph
+```
+
+A version's tag, pushed here, makes the release: `.github/workflows/release.yml` builds each
+archive on GitHub's runner for its system, runs the tests there, and uploads them with their
+checksums. The Linux and web archives build in Docker too, as `docker build --target linux-package
+--output dist .` and `--target web-package`.
+
 ## Building and running
 
 You need CMake 3.28 or newer, Ninja and a C++20 compiler.
