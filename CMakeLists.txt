@@ -29,7 +29,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(abseil)
 
-add_compile_options(-Wall -Wextra -Wpedantic)
+# GCC and Clang take the same warning flags, and MSVC has its own. /utf-8
+# reads our sources as UTF-8, as they're written, where MSVC would read them in
+# the system's code page.
+if(MSVC)
+  add_compile_options(/W4 /utf-8)
+else()
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
 
 add_library(smollergraph src/graph.cc src/facts.cc src/query.cc src/pager.cc
                          src/api.cc src/buffer_pool.cc src/name_index.cc

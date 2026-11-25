@@ -1,8 +1,7 @@
 #include "smollergraph/export.h"
 
-#include <stdlib.h>
-
 #include <fstream>
+#include <random>
 #include <sstream>
 #include <string>
 
@@ -27,8 +26,10 @@ TEST(ExportTest, WritesNodesAndRelationshipsForOtherPrograms) {
   graph.SetLabel(lion, "Species");
   graph.SetProperty(lion, "status", std::string("vulnerable"));
   graph.AddRelationship(lion, "PARENT_TAXON", graph.AddNode("Panthera"));
-  std::string path = ::testing::TempDir() + "export_test_XXXXXX";
-  ASSERT_NE(mkdtemp(path.data()), nullptr);
+  // A folder with a name of its own, so nothing is left in it from an
+  // earlier run, and a run at the same time has another.
+  std::string path = ::testing::TempDir() + "export_test_" +
+                     std::to_string(std::random_device()());
   ASSERT_EQ(Export(graph, path), absl::OkStatus());
   EXPECT_EQ(Read(path + "/nodes.jsonl"),
             R"({"id": 0, "name": "Lion", "label": "Species", )"

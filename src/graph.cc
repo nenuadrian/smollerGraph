@@ -1,13 +1,12 @@
 #include "smollergraph/graph.h"
 
-#include <sys/stat.h>
-
 #include <algorithm>
-#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <string>
+#include <system_error>
 #include <vector>
 
 #include "absl/status/status.h"
@@ -64,8 +63,11 @@ Graph::Graph() {
 
 absl::Status Graph::Open(const std::string& path) {
   // A folder that's there already, from an earlier run, is fine.
-  if (mkdir(path.c_str(), 0755) != 0 && errno != EEXIST) {
-    return absl::ErrnoToStatus(errno, absl::StrCat("can't make ", path));
+  std::error_code error;
+  std::filesystem::create_directory(path, error);
+  if (error) {
+    return absl::UnavailableError(
+        absl::StrCat("can't make ", path, ": ", error.message()));
   }
   // Each file opens if the one before it did, and the first error is the one
   // we return.

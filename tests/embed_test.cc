@@ -1,7 +1,6 @@
 #include "smollergraph/embed.h"
 
-#include <stdlib.h>
-
+#include <random>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -56,8 +55,10 @@ TEST_F(EmbedTest, FindsTheMostSimilarNodes) {
 }
 
 TEST_F(EmbedTest, KeepsEmbeddingsInTheGraphsFolder) {
-  std::string path = ::testing::TempDir() + "embed_test_XXXXXX";
-  ASSERT_NE(mkdtemp(path.data()), nullptr);
+  // A folder with a name of its own, so nothing is left in it from an
+  // earlier run, and a run at the same time has another.
+  std::string path = ::testing::TempDir() + "embed_test_" +
+                     std::to_string(std::random_device()());
   {
     Graph graph;
     ASSERT_EQ(graph.Open(path), absl::OkStatus());

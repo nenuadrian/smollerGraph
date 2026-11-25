@@ -1,10 +1,9 @@
 #include "smollergraph/export.h"
 
-#include <sys/stat.h>
-
-#include <cerrno>
+#include <filesystem>
 #include <fstream>
 #include <string>
+#include <system_error>
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
@@ -14,8 +13,11 @@ namespace smollergraph {
 
 absl::Status Export(const Graph& graph, const std::string& path) {
   // A folder that's there already, from an earlier run, is fine.
-  if (mkdir(path.c_str(), 0755) != 0 && errno != EEXIST) {
-    return absl::ErrnoToStatus(errno, absl::StrCat("can't make ", path));
+  std::error_code error;
+  std::filesystem::create_directory(path, error);
+  if (error) {
+    return absl::UnavailableError(
+        absl::StrCat("can't make ", path, ": ", error.message()));
   }
   std::ofstream nodes(path + "/nodes.jsonl");
   std::ofstream relationships(path + "/relationships.csv");

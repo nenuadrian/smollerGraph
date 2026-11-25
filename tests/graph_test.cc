@@ -1,8 +1,8 @@
 #include "smollergraph/graph.h"
 
 #include <cstdint>
-#include <cstdlib>
 #include <optional>
+#include <random>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -104,10 +104,10 @@ TEST(GraphTest, KeepsLongNamesAndALabel) {
 }
 
 TEST(GraphTest, KeepsItsRecordsInAFolder) {
-  // A new folder, with a name of its own, so nothing is left in it from an
-  // earlier run.
-  std::string path = ::testing::TempDir() + "graph_test_XXXXXX";
-  ASSERT_NE(mkdtemp(path.data()), nullptr);
+  // A folder with a name of its own, so nothing is left in it from an
+  // earlier run, and a run at the same time has another.
+  std::string path = ::testing::TempDir() + "graph_test_" +
+                     std::to_string(std::random_device()());
   {
     Graph graph;
     ASSERT_EQ(graph.Open(path), absl::OkStatus());

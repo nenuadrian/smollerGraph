@@ -2,19 +2,17 @@
 // of others, picked at random, as smollerGraph facts, with a weight on each
 // friendship, and as CSV files that Neo4j and Kùzu can import, along with the
 // people to start queries from.
-#include <sys/stat.h>
-
 #include <algorithm>
-#include <cerrno>
 #include <charconv>
 #include <cmath>
 #include <cstdint>
-#include <cstring>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <random>
 #include <string>
 #include <string_view>
+#include <system_error>
 
 namespace {
 
@@ -36,9 +34,11 @@ int main(int argc, char** argv) {
   }
   std::string folder = argv[3];
   // A folder that's there already, from an earlier run, is fine.
-  if (mkdir(folder.c_str(), 0755) != 0 && errno != EEXIST) {
+  std::error_code error;
+  std::filesystem::create_directory(folder, error);
+  if (error) {
     std::cerr << "make_friends: can't make " << folder << ": "
-              << std::strerror(errno) << '\n';
+              << error.message() << '\n';
     return 1;
   }
 
